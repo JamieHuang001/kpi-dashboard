@@ -289,7 +289,7 @@ export default function App() {
 
               {/* Operational KPIs with Sparklines */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
-                <KpiCard icon="📋" label="完修總數" value={stats?.total.cases || 0} color="#3b82f6" sub="(含保養裝機)"
+                <KpiCard icon="📋" label="完修總數" value={stats?.total?.cases || 0} color="#3b82f6" sub="(含保養裝機)"
                   sparkData={monthlyTrends?.cases} sparkColor="#3b82f6" />
                 <KpiCard icon="⏱️" label="均 TAT (淨)" value={stats ? `${stats.avgTat} 天` : '0 天'} color="#0d9488"
                   sub={stats ? `剔除: 共 ${stats.strat.totalPending} 天等待期` : ''}
@@ -324,7 +324,7 @@ export default function App() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 24 }}>
                   <DoughnutChart title="SLA 時效分佈" labels={Object.keys(tatBins)} data={Object.values(tatBins)} colors={['#10b981', '#f59e0b', '#ef4444']} />
                   <DoughnutChart title="保固內外佔比" labels={Object.keys(warBins)} data={Object.values(warBins)} colors={['#3b82f6', '#94a3b8']} />
-                  <DoughnutChart title="Top 5 高頻機型" labels={stats?.sortedModels.map(m => m[0]) || []} data={stats?.sortedModels.map(m => m[1]) || []}
+                  <DoughnutChart title="Top 5 高頻機型" labels={stats?.sortedModels?.map(m => m[0]) || []} data={stats?.sortedModels?.map(m => m[1]) || []}
                     colors={['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16']} />
                 </div>
 

@@ -192,8 +192,13 @@ export function useKpiData() {
 
         // ⑤ 零件周轉率與安全庫存
         const dateSpread = cases.filter(c => c.date).map(c => c.date.getTime());
+        let pDateMin = Infinity, pDateMax = -Infinity;
+        for (let i = 0; i < dateSpread.length; i++) {
+            if (dateSpread[i] < pDateMin) pDateMin = dateSpread[i];
+            if (dateSpread[i] > pDateMax) pDateMax = dateSpread[i];
+        }
         const monthSpan = dateSpread.length > 1
-            ? Math.max(1, (Math.max(...dateSpread) - Math.min(...dateSpread)) / (1000 * 60 * 60 * 24 * 30))
+            ? Math.max(1, (pDateMax - pDateMin) / (1000 * 60 * 60 * 24 * 30))
             : 1;
         const partsInventory = Object.entries(strat.parts).map(([key, count]) => {
             const pNo = key.split('||')[0].trim().toUpperCase();

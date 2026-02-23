@@ -122,7 +122,7 @@ export default function AdvancedInsights({ stats, dataWarnings, anomalies, month
                             <div key={index} style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 12 }}>
                                 <h5 style={{ margin: '0 0 10px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text)' }}>{dim.label}</h5>
                                 {dim.data.slice(0, showAllMods[dim.label] ? dim.data.length : 8).map(([name, count]) => {
-                                    const pct = ((count / total.cases) * 100).toFixed(1); // Assuming total.cases is the total for percentage calculation
+                                    const pct = monthlyTrends.total ? ((count / monthlyTrends.total) * 100).toFixed(1) : '0.0';
                                     return (
                                         <div key={name}
                                             style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, fontSize: '0.78rem', cursor: 'pointer', padding: '2px 0' }}
