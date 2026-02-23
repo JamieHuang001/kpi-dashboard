@@ -194,24 +194,27 @@ export default function AdvancedInsights({ stats, dataWarnings, anomalies, month
                             <thead>
                                 <tr>
                                     <th>機型</th>
-                                    <th style={{ textAlign: 'center' }}>SN 數</th>
-                                    <th style={{ textAlign: 'center' }}>維修次數</th>
-                                    <th style={{ textAlign: 'center' }}>平均故障率</th>
-                                    <th style={{ textAlign: 'center' }}>MTBF (天)</th>
+                                    <th style={{ textAlign: 'center' }} title="進場維修過的獨立機台數量">SN 數 ℹ️</th>
+                                    <th style={{ textAlign: 'center' }} title="該機型總進場維修次數">維修次數 ℹ️</th>
+                                    <th style={{ textAlign: 'center' }} title="平均故障機率 = 維修次數 ÷ SN數">平均故障率 ℹ️</th>
+                                    <th style={{ textAlign: 'center' }} title="Mean Time Between Failures = 該機型連續兩次進場維修的平均相隔天數">MTBF (天) ℹ️</th>
                                     <th style={{ textAlign: 'center' }}>評級</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {mtbfData.map(r => {
                                     const level = r.failRate > 2 ? 'danger' : r.failRate > 1.3 ? 'warning' : 'success';
+                                    const rowStyle = level === 'danger' || level === 'warning'
+                                        ? { border: '2px solid rgba(239, 68, 68, 0.5)', background: 'rgba(239, 68, 68, 0.05)' }
+                                        : {};
                                     return (
-                                        <tr key={r.model}>
+                                        <tr key={r.model} style={rowStyle}>
                                             <td style={{ fontWeight: 600 }}>{r.model}</td>
                                             <td style={{ textAlign: 'center' }}>{r.uniqueSN}</td>
                                             <td style={{ textAlign: 'center' }}>{r.totalCases}</td>
                                             <td style={{ textAlign: 'center', fontWeight: 700 }}>{r.failRate}x</td>
                                             <td style={{ textAlign: 'center' }}>{r.mtbf ? `${r.mtbf} 天` : '—'}</td>
-                                            <td style={{ textAlign: 'center' }}><span className={`badge badge - ${level} `}>{level === 'danger' ? '高風險' : level === 'warning' ? '注意' : '正常'}</span></td>
+                                            <td style={{ textAlign: 'center' }}><span className={`badge badge-${level}`}>{level === 'danger' ? '高風險' : level === 'warning' ? '注意' : '正常'}</span></td>
                                         </tr>
                                     );
                                 })}
@@ -303,11 +306,8 @@ export default function AdvancedInsights({ stats, dataWarnings, anomalies, month
 
             {/* Export Button */}
             <div style={{ textAlign: 'right', marginBottom: 16 }}>
-                <button className="btn" onClick={() => window.print()} style={{ fontWeight: 600 }}>
-                    📥 匯出為 PDF (列印全看版)
-                </button>
-                <button className="btn" onClick={() => exportToPNG(pdfRef.current, 'advanced_bi_report.png')} style={{ fontWeight: 600, marginLeft: 8, background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
-                    📷 僅截圖此區 (PNG)
+                <button className="btn" onClick={() => exportToPNG(pdfRef.current, 'advanced_bi_report.png')} style={{ fontWeight: 600, background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+                    📷 下載此區塊截圖 (PNG)
                 </button>
             </div>
         </div>

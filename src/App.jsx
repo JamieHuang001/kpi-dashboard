@@ -12,7 +12,7 @@ import TopCustomers from './components/cards/TopCustomers';
 import AnalysisReport from './components/cards/AnalysisReport';
 import AdvancedInsights from './components/cards/AdvancedInsights';
 import { useKpiData } from './hooks/useKpiData';
-import { mapType } from './utils/calculations';
+import { mapType, getSlaTarget } from './utils/calculations';
 
 export default function App() {
   const {

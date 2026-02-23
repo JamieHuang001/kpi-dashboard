@@ -3,41 +3,41 @@
 
 /* ===== Custom Theme Variables ===== */
 :root {
-  --color-primary: #0284c7;
+  --color-primary: #0ea5e9; /* Sky Blue - more modern and vibrant */
   --color-primary-light: #38bdf8;
-  --color-primary-dark: #0369a1;
-  --color-accent: #4f46e5;
+  --color-primary-dark: #0284c7;
+  --color-accent: #6366f1; /* Indigo */
   --color-accent-light: #818cf8;
 
-  --color-bg: #f0f4f8;
+  --color-bg: #f4f4f5; /* Zinc 100 - softer than gray */
   --color-surface: #ffffff;
-  --color-surface-alt: #f8fafc;
-  --color-text: #1e293b;
-  --color-text-secondary: #64748b;
-  --color-border: #e2e8f0;
+  --color-surface-alt: #fafafa;
+  --color-text: #27272a;
+  --color-text-secondary: #71717a;
+  --color-border: #e4e4e7;
 
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
   --color-info: #3b82f6;
 
-  --sidebar-width: 240px;
-  --topbar-height: 64px;
-  --radius: 12px;
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
-  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --sidebar-width: 260px;
+  --topbar-height: 68px;
+  --radius: 16px; /* Softer, rounder corners */
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-card-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* ===== Dark Mode ===== */
 .dark {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-surface-alt: #162032;
-  --color-text: #e2e8f0;
-  --color-text-secondary: #94a3b8;
-  --color-border: #334155;
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
-  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --color-bg: #09090b; /* Zinc 950 - deeper space black */
+  --color-surface: #18181b; /* Zinc 900 */
+  --color-surface-alt: #27272a;
+  --color-text: #f4f4f5;
+  --color-text-secondary: #a1a1aa;
+  --color-border: #3f3f46;
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 0 15px rgba(14, 165, 233, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.5); /* Glow effect */
 }
 
 /* ===== Global Styles ===== */
@@ -112,19 +112,21 @@ body {
   z-index: 40;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.75);
   padding: 0 24px;
   min-height: var(--topbar-height);
   display: flex;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.02);
 }
 
 .dark .topbar {
-  background: rgba(15, 23, 42, 0.85);
-  border-bottom-color: #1e293b;
+  background: rgba(24, 24, 27, 0.75);
+  border-bottom-color: #3f3f46;
 }
 
 .content-area {
@@ -141,11 +143,12 @@ body {
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
   border: 1px solid var(--color-border);
-  padding: 20px;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  padding: 24px;
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card:hover {
+  transform: translateY(-2px);
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -622,28 +625,57 @@ body {
 
 /* ===== Print ===== */
 @media print {
+  /* Critical overrides to let browser calculate full page height */
+  html, body, #root, .app-layout {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
 
   .sidebar,
-  .topbar {
+  .topbar,
+  .btn,
+  .pagination {
     display: none !important;
   }
 
-  .main-content {
-    overflow: visible;
+  /* Extract main content */
+  .main-content, .content-area {
+    display: block !important;
+    flex: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
-  .content-area {
-    padding: 0;
-    max-width: 100%;
-  }
-
-  body {
-    overflow: visible;
-  }
-
+  /* Card boundaries */
   .card,
-  .kpi-card {
-    box-shadow: none;
+  .kpi-card,
+  .analysis-box {
+    box-shadow: none !important;
     break-inside: avoid;
+    break-after: auto;
+    page-break-inside: avoid;
+    margin-bottom: 24px !important;
+    border: 1px solid #e5e5e5 !important;
+  }
+
+  /* Force background colors on print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Give headers room to breathe after page break */
+  h2, h3 {
+    break-after: avoid;
+    page-break-after: avoid;
   }
 }

@@ -20,19 +20,34 @@ export default function TopFilterBar({
         <div className="topbar" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '12px 24px', gap: '10px' }}>
             {/* Row 1: File + Filters */}
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
-                {/* File Upload */}
-                <label style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '8px 16px', borderRadius: 8,
-                    border: '2px dashed var(--color-border)',
-                    background: 'var(--color-surface-alt)',
-                    cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
-                    color: 'var(--color-primary)', transition: 'all 0.2s',
-                    whiteSpace: 'nowrap',
-                }}>
-                    📂 匯入 CSV
-                    <input type="file" accept=".csv" onChange={handleFile} style={{ display: 'none' }} />
-                </label>
+                {/* File Upload & Export Actions */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <label style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 16px', borderRadius: 8,
+                        border: '2px dashed var(--color-border)',
+                        background: 'var(--color-surface-alt)',
+                        cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                        color: 'var(--color-primary)', transition: 'all 0.2s',
+                        whiteSpace: 'nowrap',
+                    }}>
+                        📂 匯入 CSV
+                        <input type="file" accept=".csv" onChange={handleFile} style={{ display: 'none' }} />
+                    </label>
+
+                    <button onClick={() => window.print()} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 16px', borderRadius: 8,
+                        border: 'none',
+                        background: 'linear-gradient(to right, #f43f5e, #e11d48)',
+                        cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                        color: 'white', transition: 'all 0.2s',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 4px 6px -1px rgba(225, 29, 72, 0.2)'
+                    }}>
+                        🖨️ 匯出 PDF 報表
+                    </button>
+                </div>
 
                 {/* Date Range */}
                 <div>

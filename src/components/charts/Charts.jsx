@@ -139,7 +139,18 @@ export function DoughnutChart({ title, labels: chartLabels, data, colors, height
                         },
                         plugins: {
                             legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 6 } },
-                            datalabels: { display: false },
+                            datalabels: {
+                                display: true,
+                                color: '#fff',
+                                font: { size: 10, weight: 'bold' },
+                                formatter: (value, ctx) => {
+                                    if (chartLabels[0] === '無資料' || value === 0) return '';
+                                    const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    if (sum === 0) return '';
+                                    const pct = ((value / sum) * 100).toFixed(1);
+                                    return pct >= 5 ? `${pct}%` : ''; // Only show if >= 5% to avoid clutter on small slices
+                                }
+                            },
                             tooltip: {
                                 backgroundColor: 'rgba(15,23,42,0.9)', padding: 10, cornerRadius: 8,
                                 callbacks: {
