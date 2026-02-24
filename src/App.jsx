@@ -29,6 +29,7 @@ export default function App() {
   const [subFilterModels, setSubFilterModels] = useState(new Set());
   const [subFilterTypes, setSubFilterTypes] = useState(new Set());
   const [coopScores, setCoopScores] = useState({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleFilter = (setter, value) => {
     setter(prev => {
@@ -240,7 +241,7 @@ export default function App() {
 
   return (
     <div className="app-layout">
-      <Sidebar activeSection={activeSection} onNavigate={handleNavigate} />
+      <Sidebar activeSection={activeSection} onNavigate={handleNavigate} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="main-content">
         <TopFilterBar
@@ -250,6 +251,7 @@ export default function App() {
           onFileUpload={loadFile} status={status}
           points={points} onPointsChange={setPoints}
           drillDownLabel={drillDownLabel} onClearDrillDown={clearDrillDown}
+          onToggleSidebar={() => setSidebarOpen(s => !s)}
         />
 
         <div className="content-area">
@@ -276,7 +278,7 @@ export default function App() {
               </div>
 
               {/* Strategic KPIs */}
-              <div id="dashboard" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 20, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 'var(--radius)', border: '1px dashed var(--color-border)' }}>
+              <div id="dashboard" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 16, marginBottom: 20, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 'var(--radius)', border: '1px dashed var(--color-border)' }}>
                 <KpiCard icon="💰" label="預估部門維修毛利 (NT$)" value={stats ? `$${stats.grossMargin.toLocaleString()}` : '$0'} color="#8b5cf6"
                   sub={stats ? `收費: $${stats.strat.revenue.toLocaleString()} | 外修: $${stats.strat.extCost.toLocaleString()} | 零件: $${stats.strat.partsCost.toLocaleString()}` : ''}
                   sparkData={monthlyTrends?.grossMargin} sparkColor="#8b5cf6" />
@@ -288,7 +290,7 @@ export default function App() {
               </div>
 
               {/* Operational KPIs with Sparklines */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 12, marginBottom: 24 }}>
                 <KpiCard icon="📋" label="完修總數" value={stats?.total?.cases || 0} color="#3b82f6" sub="(含保養裝機)"
                   sparkData={monthlyTrends?.cases} sparkColor="#3b82f6" />
                 <KpiCard icon="⏱️" label="均 TAT (淨)" value={stats ? `${stats.avgTat} 天` : '0 天'} color="#0d9488"
@@ -317,11 +319,11 @@ export default function App() {
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginBottom: 12, textAlign: 'right' }}>
                   (點擊長條圖可篩選連動所有數據)
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 20, marginBottom: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))', gap: 20, marginBottom: 24 }}>
                   <ServiceChart cases={drillDownLabel ? displayCases : filteredCases} granularity={granularity} onBarClick={applyDrillDown} />
                   <CostWeightedParts costWeightedParts={stats?.costWeightedParts || []} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 16, marginBottom: 24 }}>
                   <DoughnutChart title="SLA 時效分佈" labels={Object.keys(tatBins)} data={Object.values(tatBins)} colors={['#10b981', '#f59e0b', '#ef4444']} />
                   <DoughnutChart title="保固內外佔比" labels={Object.keys(warBins)} data={Object.values(warBins)} colors={['#3b82f6', '#94a3b8']} />
                   <DoughnutChart title="Top 5 高頻機型" labels={stats?.sortedModels?.map(m => m[0]) || []} data={stats?.sortedModels?.map(m => m[1]) || []}
@@ -363,7 +365,7 @@ export default function App() {
                   </div>
 
                   {/* Dimension Counters Row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: 12, marginBottom: 16 }}>
                     <DoughnutChart title="📊 機型分佈" {...deepAnalysis.dimModel} onClick={l => openDeepAnalysis('dimModel', l)} />
                     <DoughnutChart title="📊 狀態分佈" {...deepAnalysis.dimStatus} onClick={l => openDeepAnalysis('dimStatus', l)} />
                     <DoughnutChart title="📊 維修類型" {...deepAnalysis.dimType} onClick={l => openDeepAnalysis('dimType', l)} />
@@ -386,7 +388,7 @@ export default function App() {
                   )}
 
                   {/* SLA & Warranty doughnuts */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: 12 }}>
                     <DoughnutChart title="🚨 SLA逾期 - 服務分類" {...deepAnalysis.slaType}
                       bgColor="rgba(225, 29, 72, 0.04)" onClick={l => openDeepAnalysis('slaType', l)} />
                     <DoughnutChart title="🚨 SLA逾期 - 高頻機型" {...deepAnalysis.slaModel}
@@ -407,7 +409,7 @@ export default function App() {
                         <h4 style={{ margin: '0 0 10px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text)' }}>
                           🛡️ 保固內案件分析 — 細部組成統計
                         </h4>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 12 }}>
                           {[
                             { label: '📱 機型分佈', data: deepAnalysis.warBreakdown.model },
                             { label: '📌 案件狀態', data: deepAnalysis.warBreakdown.status },

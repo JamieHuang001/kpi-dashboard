@@ -3,13 +3,16 @@
 
 /* ===== Custom Theme Variables ===== */
 :root {
-  --color-primary: #0ea5e9; /* Sky Blue - more modern and vibrant */
+  --color-primary: #0ea5e9;
+  /* Sky Blue - more modern and vibrant */
   --color-primary-light: #38bdf8;
   --color-primary-dark: #0284c7;
-  --color-accent: #6366f1; /* Indigo */
+  --color-accent: #6366f1;
+  /* Indigo */
   --color-accent-light: #818cf8;
 
-  --color-bg: #f4f4f5; /* Zinc 100 - softer than gray */
+  --color-bg: #f4f4f5;
+  /* Zinc 100 - softer than gray */
   --color-surface: #ffffff;
   --color-surface-alt: #fafafa;
   --color-text: #27272a;
@@ -23,21 +26,25 @@
 
   --sidebar-width: 260px;
   --topbar-height: 68px;
-  --radius: 16px; /* Softer, rounder corners */
+  --radius: 16px;
+  /* Softer, rounder corners */
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --shadow-card-hover: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* ===== Dark Mode ===== */
 .dark {
-  --color-bg: #09090b; /* Zinc 950 - deeper space black */
-  --color-surface: #18181b; /* Zinc 900 */
+  --color-bg: #09090b;
+  /* Zinc 950 - deeper space black */
+  --color-surface: #18181b;
+  /* Zinc 900 */
   --color-surface-alt: #27272a;
   --color-text: #f4f4f5;
   --color-text-secondary: #a1a1aa;
   --color-border: #3f3f46;
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  --shadow-card-hover: 0 0 15px rgba(14, 165, 233, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.5); /* Glow effect */
+  --shadow-card-hover: 0 0 15px rgba(14, 165, 233, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  /* Glow effect */
 }
 
 /* ===== Global Styles ===== */
@@ -370,6 +377,43 @@ body {
   color: var(--color-text);
 }
 
+/* ===== Hamburger Button ===== */
+.hamburger-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.hamburger-btn:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* ===== Sidebar Overlay (Mobile) ===== */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 90;
+  animation: fadeIn 0.2s ease;
+}
+
+.sidebar-overlay.active {
+  display: block;
+}
+
 /* ===== File Upload ===== */
 .file-upload {
   border: 2px dashed var(--color-border);
@@ -442,6 +486,16 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
   }
 }
 
@@ -608,10 +662,61 @@ body {
   border-color: var(--color-primary-light);
 }
 
+/* ===== Table Scroll Wrapper ===== */
+.table-scroll-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* ===== Responsive ===== */
+
+/* Tablet (769 - 1024px) */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 220px;
+  }
+
+  .content-area {
+    padding: 20px;
+  }
+
+  .card {
+    padding: 20px;
+  }
+}
+
+/* Small Tablet / Large Phone (481 - 768px) */
 @media (max-width: 768px) {
+
+  /* Sidebar becomes overlay drawer */
   .sidebar {
-    display: none;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 280px;
+    min-width: 280px;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+  }
+
+  .hamburger-btn {
+    display: flex;
+  }
+
+  body {
+    overflow-x: hidden;
   }
 
   .content-area {
@@ -619,14 +724,123 @@ body {
   }
 
   .topbar {
-    padding: 0 16px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .kpi-card {
+    padding: 12px 14px;
+  }
+
+  .kpi-value {
+    font-size: 1.4rem;
+  }
+
+  .modal-content {
+    width: 96%;
+    padding: 16px;
+    max-height: 90vh;
+  }
+
+  .config-panel {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+/* Phone (≤ 480px) */
+@media (max-width: 480px) {
+  .content-area {
+    padding: 12px;
+  }
+
+  .topbar {
+    padding: 0 10px;
+    min-height: 56px;
+  }
+
+  .card {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .kpi-card {
+    padding: 10px 12px;
+  }
+
+  .kpi-value {
+    font-size: 1.25rem;
+  }
+
+  .kpi-label {
+    font-size: 0.72rem;
+  }
+
+  .section-title {
+    font-size: 0.95rem;
+  }
+
+  .modal-content {
+    width: 100%;
+    border-radius: 12px 12px 0 0;
+    max-height: 92vh;
+    margin-top: auto;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+  }
+
+  .config-panel {
+    grid-template-columns: 1fr 1fr;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .pagination button {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+
+  .data-table {
+    font-size: 0.78rem;
+  }
+
+  .data-table thead th {
+    padding: 8px;
+    font-size: 0.68rem;
+  }
+
+  .data-table tbody td {
+    padding: 8px;
+  }
+
+  .chip {
+    padding: 4px 10px;
+    font-size: 0.72rem;
+  }
+
+  .file-upload {
+    padding: 20px;
+  }
+
+  .customer-card {
+    padding: 12px;
   }
 }
 
 /* ===== Print ===== */
 @media print {
+
   /* Critical overrides to let browser calculate full page height */
-  html, body, #root, .app-layout {
+  html,
+  body,
+  #root,
+  .app-layout {
     height: auto !important;
     min-height: auto !important;
     overflow: visible !important;
@@ -639,12 +853,15 @@ body {
   .sidebar,
   .topbar,
   .btn,
-  .pagination {
+  .pagination,
+  .hamburger-btn,
+  .sidebar-overlay {
     display: none !important;
   }
 
   /* Extract main content */
-  .main-content, .content-area {
+  .main-content,
+  .content-area {
     display: block !important;
     flex: none !important;
     width: 100% !important;
@@ -674,7 +891,8 @@ body {
   }
 
   /* Give headers room to breathe after page break */
-  h2, h3 {
+  h2,
+  h3 {
     break-after: avoid;
     page-break-after: avoid;
   }

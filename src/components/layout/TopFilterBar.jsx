@@ -1,7 +1,8 @@
 export default function TopFilterBar({
     dateRange, onDateChange, targetPoints, onTargetChange,
     encoding, onEncodingChange, onFileUpload, status,
-    points, onPointsChange, drillDownLabel, onClearDrillDown
+    points, onPointsChange, drillDownLabel, onClearDrillDown,
+    onToggleSidebar
 }) {
     const handleFile = (e) => {
         if (e.target.files[0]) onFileUpload(e.target.files[0]);
@@ -20,8 +21,13 @@ export default function TopFilterBar({
         <div className="topbar" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '12px 24px', gap: '10px' }}>
             {/* Row 1: File + Filters */}
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+                {/* Hamburger button for mobile */}
+                <button className="hamburger-btn" onClick={onToggleSidebar} aria-label="開啟選單">
+                    ☰
+                </button>
+
                 {/* File Upload & Export Actions */}
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <label style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
                         padding: '8px 16px', borderRadius: 8,
@@ -50,37 +56,39 @@ export default function TopFilterBar({
                 </div>
 
                 {/* Date Range */}
-                <div>
-                    <label className="form-label">開始日期</label>
-                    <input type="date" className="form-input" style={{ width: 145 }}
-                        value={dateRange.start}
-                        onChange={e => onDateChange({ ...dateRange, start: e.target.value })}
-                    />
-                </div>
-                <div>
-                    <label className="form-label">結束日期</label>
-                    <input type="date" className="form-input" style={{ width: 145 }}
-                        value={dateRange.end}
-                        onChange={e => onDateChange({ ...dateRange, end: e.target.value })}
-                    />
-                </div>
+                <div className="topbar-filters" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <div>
+                        <label className="form-label">開始日期</label>
+                        <input type="date" className="form-input" style={{ width: 145, maxWidth: '100%' }}
+                            value={dateRange.start}
+                            onChange={e => onDateChange({ ...dateRange, start: e.target.value })}
+                        />
+                    </div>
+                    <div>
+                        <label className="form-label">結束日期</label>
+                        <input type="date" className="form-input" style={{ width: 145, maxWidth: '100%' }}
+                            value={dateRange.end}
+                            onChange={e => onDateChange({ ...dateRange, end: e.target.value })}
+                        />
+                    </div>
 
-                {/* Target Points */}
-                <div>
-                    <label className="form-label">月責任點數</label>
-                    <input type="number" className="form-input" style={{ width: 80 }}
-                        value={targetPoints}
-                        onChange={e => onTargetChange(parseFloat(e.target.value) || 150)}
-                    />
-                </div>
+                    {/* Target Points */}
+                    <div>
+                        <label className="form-label">月責任點數</label>
+                        <input type="number" className="form-input" style={{ width: 80 }}
+                            value={targetPoints}
+                            onChange={e => onTargetChange(parseFloat(e.target.value) || 150)}
+                        />
+                    </div>
 
-                {/* Encoding */}
-                <div>
-                    <label className="form-label">編碼</label>
-                    <select className="form-input" value={encoding} onChange={e => onEncodingChange(e.target.value)} style={{ width: 100 }}>
-                        <option value="UTF-8">UTF-8</option>
-                        <option value="Big5">Big5</option>
-                    </select>
+                    {/* Encoding */}
+                    <div>
+                        <label className="form-label">編碼</label>
+                        <select className="form-input" value={encoding} onChange={e => onEncodingChange(e.target.value)} style={{ width: 100 }}>
+                            <option value="UTF-8">UTF-8</option>
+                            <option value="Big5">Big5</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* Drill Down Notice */}

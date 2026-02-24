@@ -1,8 +1,12 @@
 import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { registerSW } from 'virtual:pwa-register'
 import { ThemeProvider } from './hooks/useTheme'
 import App from './App.jsx'
 import './styles/index.css'
+
+// Register PWA Service Worker
+registerSW({ immediate: true })
 
 class GlobalErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null, info: null }; }
