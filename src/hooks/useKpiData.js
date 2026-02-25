@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
-import { parseCSVFile } from '../utils/dataParser';
-import { calculatePoints, getPartCost, mapType, getSlaTarget, calcGiniIndex, DEFAULT_POINTS } from '../utils/calculations';
+import { parseCSVFile, processCSVText } from '../utils/dataParser';
+import { calculatePoints, getPartCost, mapType, isRepairType, getSlaTarget, calcGiniIndex, DEFAULT_POINTS } from '../utils/calculations';
+import { fetchRepairRecordsCSV, fetchAssetInventoryCSV, parseAssetCSV } from '../utils/googleSheetsLoader';
 
 export function useKpiData() {
     const [allCases, setAllCases] = useState([]);
@@ -12,6 +13,9 @@ export function useKpiData() {
     const [encoding, setEncoding] = useState('UTF-8');
     const [status, setStatus] = useState('');
     const [isLoaded, setIsLoaded] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+    const [assetData, setAssetData] = useState([]);
+    const [assetStatus, setAssetStatus] = useState('');
     const [drillDownLabel, setDrillDownLabel] = useState(null);
     const [granularity, setGranularity] = useState('month');
 
@@ -36,6 +40,46 @@ export function useKpiData() {
             setStatus(`❌ ${err.message}`);
         }
     }, [encoding]);
+
+    // 從 Google Sheets 自動下載維修紀錄
+    const loadFromGoogleSheets = useCallback(async () => {
+        try {
+            setIsGoogleLoading(true);
+            setStatus('☁️ 正在從 Google Sheets 下載維修紀錄...');
+            const csvText = await fetchRepairRecordsCSV();
+            const cases = processCSVText(csvText);
+            setAllCases(cases);
+
+            const validDates = cases.map(c => c.date).filter(d => d).sort((a, b) => a - b);
+            if (validDates.length > 0) {
+                const last = validDates[validDates.length - 1];
+                const y = last.getFullYear();
+                const m = String(last.getMonth() + 1).padStart(2, '0');
+                const d = String(last.getDate()).padStart(2, '0');
+                setDateRange({ start: `${y}-${m}-01`, end: `${y}-${m}-${d}` });
+            }
+
+            setStatus(`✅ Google Sheets 成功讀取 ${cases.length} 筆工單`);
+            setIsLoaded(true);
+        } catch (err) {
+            setStatus(`❌ Google Sheets 下載失敗：${err.message}`);
+        } finally {
+            setIsGoogleLoading(false);
+        }
+    }, []);
+
+    // 從 Google Sheets 自動下載財產總表
+    const loadAssetSheet = useCallback(async () => {
+        try {
+            setAssetStatus('☁️ 正在下載財產總表...');
+            const csvText = await fetchAssetInventoryCSV();
+            const assets = parseAssetCSV(csvText);
+            setAssetData(assets);
+            setAssetStatus(`✅ 成功讀取 ${assets.length} 筆財產資料`);
+        } catch (err) {
+            setAssetStatus(`❌ 財產總表下載失敗：${err.message}`);
+        }
+    }, []);
 
     // Recalculate when dependencies change
     const recalculate = useCallback(() => {
@@ -100,6 +144,7 @@ export function useKpiData() {
             }
 
             let casePartsCost = 0;
+            const isExtRepair = t.includes('外修');
             c.parts.forEach(part => {
                 if (part.name && !['FALSE', 'TRUE'].includes(part.name.toUpperCase())) {
                     const key = `${part.no || ''}||${part.name}`;
@@ -107,7 +152,10 @@ export function useKpiData() {
                 }
                 casePartsCost += getPartCost(part.no);
             });
-            strat.partsCost += casePartsCost;
+            // 外修案件的 extCost 已包含廠商所有費用（含零件），不再重複計入 partsCost
+            if (!isExtRepair) {
+                strat.partsCost += casePartsCost;
+            }
         });
 
         const grossMargin = strat.revenue - strat.extCost - strat.partsCost;
@@ -273,13 +321,16 @@ export function useKpiData() {
             if (!c.date) return;
             const key = `${c.date.getFullYear()}-${String(c.date.getMonth() + 1).padStart(2, '0')}`;
             if (!months[key]) months[key] = { cases: 0, tatSum: 0, recallNum: 0, recallDenom: 0, revenue: 0, partsCost: 0, extCost: 0 };
+            const isExtRepairTrend = (c.type || '').includes('外修');
             months[key].cases++;
             months[key].tatSum += c.tat || 0;
             months[key].revenue += c.revenue || 0;
             months[key].extCost += c.extCost || 0;
             let pc = 0;
             c.parts.forEach(p => { pc += getPartCost(p.no); });
-            months[key].partsCost += pc;
+            if (!isExtRepairTrend) {
+                months[key].partsCost += pc;
+            }
             const t = c.type || '';
             if (t.includes('檢測') || t.includes('維修') || t.includes('外修')) {
                 months[key].recallDenom++;
@@ -344,6 +395,9 @@ export function useKpiData() {
         encoding, setEncoding, status, isLoaded, stats,
         drillDownLabel, granularity, setGranularity,
         monthlyTrends, dataWarnings, anomalies,
-        loadFile, recalculate, applyDrillDown, clearDrillDown
+        loadFile, recalculate, applyDrillDown, clearDrillDown,
+        // Google Sheets integration
+        loadFromGoogleSheets, isGoogleLoading,
+        loadAssetSheet, assetData, assetStatus
     };
 }

@@ -2,7 +2,7 @@ export default function TopFilterBar({
     dateRange, onDateChange, targetPoints, onTargetChange,
     encoding, onEncodingChange, onFileUpload, status,
     points, onPointsChange, drillDownLabel, onClearDrillDown,
-    onToggleSidebar
+    onToggleSidebar, onGoogleSheetLoad, onAssetLoad, isGoogleLoading, assetStatus
 }) {
     const handleFile = (e) => {
         if (e.target.files[0]) onFileUpload(e.target.files[0]);
@@ -40,6 +40,36 @@ export default function TopFilterBar({
                         📂 匯入 CSV
                         <input type="file" accept=".csv" onChange={handleFile} style={{ display: 'none' }} />
                     </label>
+
+                    <button onClick={onGoogleSheetLoad} disabled={isGoogleLoading} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 16px', borderRadius: 8,
+                        border: 'none',
+                        background: isGoogleLoading
+                            ? 'linear-gradient(to right, #94a3b8, #64748b)'
+                            : 'linear-gradient(to right, #0284c7, #0ea5e9)',
+                        cursor: isGoogleLoading ? 'wait' : 'pointer',
+                        fontSize: '0.82rem', fontWeight: 600,
+                        color: 'white', transition: 'all 0.2s',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.2)',
+                        opacity: isGoogleLoading ? 0.8 : 1,
+                    }}>
+                        {isGoogleLoading ? '⏳ 下載中...' : '☁️ 自動下載維修紀錄'}
+                    </button>
+
+                    <button onClick={onAssetLoad} disabled={isGoogleLoading} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 16px', borderRadius: 8,
+                        border: 'none',
+                        background: 'linear-gradient(to right, #059669, #10b981)',
+                        cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                        color: 'white', transition: 'all 0.2s',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 4px 6px -1px rgba(5, 150, 105, 0.2)'
+                    }}>
+                        📋 匯入財產總表
+                    </button>
 
                     <button onClick={() => window.print()} style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
@@ -106,10 +136,15 @@ export default function TopFilterBar({
                         {status}
                     </div>
                 )}
+                {assetStatus && (
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
+                        {assetStatus}
+                    </div>
+                )}
             </div>
 
             {/* Row 2: Point Config (collapsible) */}
-            <details style={{ marginTop: -4 }}>
+            <details style={{ marginTop: -4, alignSelf: 'flex-start' }}>
                 <summary style={{
                     cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700,
                     color: 'var(--color-warning)', userSelect: 'none',

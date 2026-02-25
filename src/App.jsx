@@ -11,17 +11,21 @@ import DetailModal from './components/common/DetailModal';
 import TopCustomers from './components/cards/TopCustomers';
 import AnalysisReport from './components/cards/AnalysisReport';
 import AdvancedInsights from './components/cards/AdvancedInsights';
+import OperationsDashboard from './components/cards/OperationsDashboard';
+import CaseMindMap from './components/cards/CaseMindMap';
 import { useKpiData } from './hooks/useKpiData';
 import { mapType, getSlaTarget } from './utils/calculations';
 
 export default function App() {
   const {
-    filteredCases, displayCases, dateRange, setDateRange,
+    allCases, filteredCases, displayCases, dateRange, setDateRange,
     points, setPoints, targetPoints, setTargetPoints,
     encoding, setEncoding, status, isLoaded, stats,
     drillDownLabel, granularity, setGranularity,
     monthlyTrends, dataWarnings, anomalies,
-    loadFile, recalculate, applyDrillDown, clearDrillDown
+    loadFile, recalculate, applyDrillDown, clearDrillDown,
+    loadFromGoogleSheets, isGoogleLoading,
+    loadAssetSheet, assetData, assetStatus
   } = useKpiData();
 
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -252,6 +256,10 @@ export default function App() {
           points={points} onPointsChange={setPoints}
           drillDownLabel={drillDownLabel} onClearDrillDown={clearDrillDown}
           onToggleSidebar={() => setSidebarOpen(s => !s)}
+          onGoogleSheetLoad={loadFromGoogleSheets}
+          onAssetLoad={loadAssetSheet}
+          isGoogleLoading={isGoogleLoading}
+          assetStatus={assetStatus}
         />
 
         <div className="content-area">
@@ -259,14 +267,96 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 24 }}>
               <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #0284c7, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2rem', fontWeight: 800 }}>YD</div>
               <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>永定生物科技 技術部 KPI 儀表板</h1>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.0 BI Dashboard — 請上傳維修紀錄 CSV 開始分析</p>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.1 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
+
+              {/* Google Sheets 一鍵下載 */}
+              <button onClick={loadFromGoogleSheets} disabled={isGoogleLoading} style={{
+                width: '100%', maxWidth: 400, padding: '14px 24px', borderRadius: 12,
+                border: 'none', cursor: isGoogleLoading ? 'wait' : 'pointer',
+                background: isGoogleLoading
+                  ? 'linear-gradient(135deg, #94a3b8, #64748b)'
+                  : 'linear-gradient(135deg, #0284c7, #4f46e5)',
+                color: 'white', fontSize: '1rem', fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                boxShadow: '0 8px 25px -5px rgba(2, 132, 199, 0.35)',
+                transition: 'all 0.3s',
+                transform: isGoogleLoading ? 'none' : 'translateY(0)',
+              }}
+                onMouseEnter={e => { if (!isGoogleLoading) e.target.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { e.target.style.transform = 'translateY(0)'; }}
+              >
+                {isGoogleLoading ? '⏳ 正在下載...' : '☁️ 一鍵下載 Google Sheets 維修紀錄'}
+              </button>
+
+              {/* 原有 CSV 上傳 */}
               <label className="file-upload" style={{ width: '100%', maxWidth: 400, cursor: 'pointer' }}>
                 <input type="file" accept=".csv" onChange={e => e.target.files[0] && loadFile(e.target.files[0])} style={{ display: 'none' }} />
                 <div style={{ fontSize: '2rem', marginBottom: 8 }}>📂</div>
-                <div style={{ fontWeight: 700, color: 'var(--color-primary)' }}>點擊上傳 CSV 檔案</div>
+                <div style={{ fontWeight: 700, color: 'var(--color-primary)' }}>或點擊上傳 CSV 檔案</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>自動執行工作日換算與 Pending 剔除</div>
               </label>
               {status && <div style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{status}</div>}
+
+              {/* 財產總表 (也在首頁顯示) */}
+              {assetData.length > 0 && (
+                <div id="assets" className="card" style={{ width: '100%', maxWidth: '100%', marginTop: 16, textAlign: 'left' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>📦 工程部財產總表</h3>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                      共 {assetData.length} 筆資產
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 16 }}>
+                    {(() => {
+                      const sc = {};
+                      assetData.forEach(a => { const s = a.status || '未填寫'; sc[s] = (sc[s] || 0) + 1; });
+                      const clr = { '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6', '租賃': '#10b981', '工具': '#64748b', '報廢': '#ef4444', '找不到': '#dc2626', '租購': '#6366f1' };
+                      return Object.entries(sc).sort((a, b) => b[1] - a[1]).map(([s, c]) => (
+                        <div key={s} style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--color-surface-alt)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: clr[s] || 'var(--color-text)' }}>{c}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>{s}</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--color-surface-alt)' }}>
+                          {['公司', '產品名稱', '序號', '資產編號', '廠牌', '型號', '狀態', '日期', '現況位置', '備註', '合約'].map(h => (
+                            <th key={h} style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--color-text-secondary)', borderBottom: '2px solid var(--color-border)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assetData.map((a, i) => {
+                          const clr = { '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6', '租賃': '#10b981', '工具': '#64748b', '報廢': '#ef4444', '找不到': '#dc2626', '租購': '#6366f1' };
+                          return (
+                            <tr key={`lp-${a.serialNo}-${i}`} style={{ borderBottom: '1px solid var(--color-border)' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-alt)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <td style={{ padding: '6px', whiteSpace: 'nowrap', fontWeight: 600 }}>{a.company}</td>
+                              <td style={{ padding: '6px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.productName}</td>
+                              <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.serialNo}</td>
+                              <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.assetId}</td>
+                              <td style={{ padding: '6px' }}>{a.brand}</td>
+                              <td style={{ padding: '6px' }}>{a.model}</td>
+                              <td style={{ padding: '6px' }}>
+                                <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700, background: `${clr[a.status] || '#64748b'}15`, color: clr[a.status] || 'var(--color-text-secondary)' }}>{a.status || '-'}</span>
+                              </td>
+                              <td style={{ padding: '6px', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.startDate}</td>
+                              <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.location}</td>
+                              <td style={{ padding: '6px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.notes}</td>
+                              <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.contract}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -276,6 +366,9 @@ export default function App() {
                   {dateRange.start} 至 {dateRange.end}
                 </div>
               </div>
+
+              {/* Operations Dashboard */}
+              <OperationsDashboard assetData={assetData} filteredCases={filteredCases} />
 
               {/* Strategic KPIs */}
               <div id="dashboard" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 16, marginBottom: 20, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 'var(--radius)', border: '1px dashed var(--color-border)' }}>
@@ -465,6 +558,11 @@ export default function App() {
                 <AdvancedInsights stats={stats} dataWarnings={dataWarnings} anomalies={anomalies} monthlyTrends={monthlyTrends} openDeepAnalysis={openDeepAnalysis} />
               </div>
 
+              {/* Case Mind Map */}
+              <div style={{ marginBottom: 24 }}>
+                <CaseMindMap allCases={allCases} />
+              </div>
+
               {/* Engineer Scatter Plot */}
               <ChartErrorBoundary>
                 <EngineerScatter engStats={stats?.sortedEng || []} />
@@ -478,6 +576,92 @@ export default function App() {
               <div id="parts" style={{ marginBottom: 24 }}>
                 <PartsTable sortedParts={stats?.sortedParts || []} />
               </div>
+
+              {/* 財產總表 */}
+              {assetData.length > 0 && (
+                <div id="assets" className="card" style={{ marginBottom: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>📦 工程部財產總表</h3>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                      共 {assetData.length} 筆資產
+                      {assetStatus && <span style={{ marginLeft: 8, color: '#059669' }}>{assetStatus}</span>}
+                    </div>
+                  </div>
+
+                  {/* Summary cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 16 }}>
+                    {(() => {
+                      const statusCounts = {};
+                      assetData.forEach(a => {
+                        const s = a.status || '未填寫';
+                        statusCounts[s] = (statusCounts[s] || 0) + 1;
+                      });
+                      const statusColors = {
+                        '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6',
+                        '租賺': '#10b981', '工具': '#64748b', '報廢': '#ef4444',
+                        '找不到': '#dc2626', '租購': '#6366f1',
+                      };
+                      return Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).map(([s, count]) => (
+                        <div key={s} style={{
+                          padding: '10px 12px', borderRadius: 8,
+                          background: 'var(--color-surface-alt)',
+                          border: `1px solid ${statusColors[s] || 'var(--color-border)'}20`,
+                          textAlign: 'center'
+                        }}>
+                          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: statusColors[s] || 'var(--color-text)' }}>{count}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>{s}</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Asset table */}
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--color-surface-alt)' }}>
+                          {['公司', '產品名稱', '序號', '資產編號', '廠牌', '型號', '狀態', '日期', '現況位置', '備註', '合約'].map(h => (
+                            <th key={h} style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--color-text-secondary)', borderBottom: '2px solid var(--color-border)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assetData.map((a, i) => {
+                          const statusColors = {
+                            '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6',
+                            '租賺': '#10b981', '工具': '#64748b', '報廢': '#ef4444',
+                            '找不到': '#dc2626', '租購': '#6366f1',
+                          };
+                          return (
+                            <tr key={`${a.serialNo}-${i}`} style={{ borderBottom: '1px solid var(--color-border)', transition: 'background 0.15s' }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-alt)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <td style={{ padding: '6px', whiteSpace: 'nowrap', fontWeight: 600 }}>{a.company}</td>
+                              <td style={{ padding: '6px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.productName}</td>
+                              <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.serialNo}</td>
+                              <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.assetId}</td>
+                              <td style={{ padding: '6px' }}>{a.brand}</td>
+                              <td style={{ padding: '6px' }}>{a.model}</td>
+                              <td style={{ padding: '6px' }}>
+                                <span style={{
+                                  padding: '2px 8px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700,
+                                  background: `${statusColors[a.status] || '#64748b'}15`,
+                                  color: statusColors[a.status] || 'var(--color-text-secondary)',
+                                }}>{a.status || '-'}</span>
+                              </td>
+                              <td style={{ padding: '6px', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.startDate}</td>
+                              <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.location}</td>
+                              <td style={{ padding: '6px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.notes}</td>
+                              <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.contract}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

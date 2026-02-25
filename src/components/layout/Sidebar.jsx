@@ -2,9 +2,14 @@ import { useTheme } from '../../hooks/useTheme';
 
 const navItems = [
     { icon: '📊', label: '儀表板總覽', id: 'dashboard' },
+    { icon: '🏥', label: '設備監控', id: 'equipment' },
+    { icon: '✅', label: 'SOP 檢核', id: 'sop' },
+    { icon: '⚠️', label: '異常通報', id: 'risks' },
+    { icon: '🗺️', label: '案件心智圖', id: 'mindmap' },
     { icon: '👷', label: '工程師績效', id: 'engineers' },
     { icon: '🔧', label: '零件消耗', id: 'parts' },
     { icon: '🏆', label: '重點客戶', id: 'customers' },
+    { icon: '📦', label: '財產總表', id: 'assets' },
 ];
 
 export default function Sidebar({ activeSection, onNavigate, isOpen, onClose }) {
@@ -99,7 +104,7 @@ export default function Sidebar({ activeSection, onNavigate, isOpen, onClose }) 
                         </div>
                     </button>
                     <div style={{ textAlign: 'center', marginTop: 8, fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
-                        V5.0 BI Dashboard
+                        V5.1 BI Dashboard
                     </div>
                 </div>
             </div>
