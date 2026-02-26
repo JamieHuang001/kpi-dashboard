@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { getTatClass, getAchvClass } from '../../utils/calculations';
 import { exportToCSV } from '../../utils/exportHelpers';
 
 /* ===== 工程師 KPI 表 ===== */
-export function EngineerTable({ engStats, targetPoints, onEngineerClick, coopScores = {}, onCoopChange }) {
+const EngineerTable = memo(function EngineerTable({ engStats, targetPoints, onEngineerClick, coopScores = {}, onCoopChange }) {
     const [page, setPage] = useState(0);
     const [search, setSearch] = useState('');
     const [sortKey, setSortKey] = useState('points');
@@ -128,10 +128,10 @@ export function EngineerTable({ engStats, targetPoints, onEngineerClick, coopSco
             )}
         </div>
     );
-}
+});
 
 /* ===== 零件消耗表 ===== */
-export function PartsTable({ sortedParts }) {
+const PartsTable = memo(function PartsTable({ sortedParts }) {
     const [page, setPage] = useState(0);
     const pageSize = 20;
     const totalPages = Math.ceil(sortedParts.length / pageSize);
@@ -203,4 +203,6 @@ export function PartsTable({ sortedParts }) {
             )}
         </div>
     );
-}
+});
+
+export { EngineerTable, PartsTable };

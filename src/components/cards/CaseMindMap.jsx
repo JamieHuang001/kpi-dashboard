@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { mapType, SERVICE_COLORS } from '../../utils/calculations';
 
 /**
  * 案件心智圖 — 根據序號搜尋並以心智圖視覺化呈現設備維修歷程
  */
-export default function CaseMindMap({ allCases = [] }) {
+const CaseMindMap = memo(function CaseMindMap({ allCases = [] }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedNode, setSelectedNode] = useState(null);
 
@@ -331,4 +331,6 @@ export default function CaseMindMap({ allCases = [] }) {
             </div>
         </div>
     );
-}
+});
+
+export default CaseMindMap;

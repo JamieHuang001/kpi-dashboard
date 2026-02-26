@@ -1,27 +1,31 @@
+import { useMemo, memo } from 'react';
 import { mapType } from '../../utils/calculations';
 
-export default function TopCustomers({ cases }) {
-    const custMap = {};
-    cases.forEach(c => {
-        const t = c.type || "";
-        const isRoutine = ["保養", "整新", "裝機", "安裝"].some(k => t.includes(k));
-        if (isRoutine || !c.client || c.client === "Unknown") return;
-        if (!custMap[c.client]) custMap[c.client] = { name: c.client, count: 0, models: {}, faults: {}, parts: {} };
-        custMap[c.client].count++;
-        if (c.model) custMap[c.client].models[c.model] = (custMap[c.client].models[c.model] || 0) + 1;
-        if (c.fault) {
-            const fShort = c.fault.substring(0, 15);
-            custMap[c.client].faults[fShort] = (custMap[c.client].faults[fShort] || 0) + 1;
-        }
-        c.parts.forEach(p => {
-            if (p.name && !['FALSE', 'TRUE'].includes(p.name.toUpperCase())) {
-                const cleanName = p.name.split(',')[0].trim();
-                custMap[c.client].parts[cleanName] = (custMap[c.client].parts[cleanName] || 0) + 1;
+const TopCustomers = memo(function TopCustomers({ cases }) {
+    const sortedCust = useMemo(() => {
+        const custMap = {};
+        cases.forEach(c => {
+            const t = c.type || "";
+            const isRoutine = ["保養", "整新", "裝機", "安裝"].some(k => t.includes(k));
+            if (isRoutine || !c.client || c.client === "Unknown") return;
+            if (!custMap[c.client]) custMap[c.client] = { name: c.client, count: 0, models: {}, faults: {}, parts: {} };
+            custMap[c.client].count++;
+            if (c.model) custMap[c.client].models[c.model] = (custMap[c.client].models[c.model] || 0) + 1;
+            if (c.fault) {
+                const fShort = c.fault.substring(0, 15);
+                custMap[c.client].faults[fShort] = (custMap[c.client].faults[fShort] || 0) + 1;
             }
+            c.parts.forEach(p => {
+                if (p.name && !['FALSE', 'TRUE'].includes(p.name.toUpperCase())) {
+                    const cleanName = p.name.split(',')[0].trim();
+                    custMap[c.client].parts[cleanName] = (custMap[c.client].parts[cleanName] || 0) + 1;
+                }
+            });
         });
-    });
 
-    const sortedCust = Object.values(custMap).sort((a, b) => b.count - a.count).slice(0, 5);
+        const sorted = Object.values(custMap).sort((a, b) => b.count - a.count).slice(0, 5);
+        return sorted;
+    }, [cases]);
 
     if (sortedCust.length === 0) {
         return <div style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: 24 }}>無維修叫修數據</div>;
@@ -74,4 +78,6 @@ export default function TopCustomers({ cases }) {
             })}
         </div>
     );
-}
+});
+
+export default TopCustomers;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 
 // ===== 常量 =====
 const STORAGE_KEY_SOP = 'yd-dashboard-sop-checklist';
@@ -97,7 +97,7 @@ function ProgressBar({ value, max = 100, color, height = 8 }) {
 }
 
 // ===== ① 設備與營運監控區 =====
-function EquipmentMonitor({ assetData }) {
+const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
     const [modalData, setModalData] = useState(null);
 
     const stats = useMemo(() => {
@@ -266,10 +266,10 @@ function EquipmentMonitor({ assetData }) {
             </DetailModal>
         </>
     );
-}
+});
 
 // ===== ② 標準作業程序與常規任務區 =====
-function SOPChecklist() {
+const SOPChecklist = memo(function SOPChecklist() {
     const [checkedItems, setCheckedItems] = useState(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY_SOP);
@@ -335,10 +335,10 @@ function SOPChecklist() {
             </div>
         </div>
     );
-}
+});
 
 // ===== ③ 異常通報與風險管理區 =====
-function RiskManagement({ filteredCases = [] }) {
+const RiskManagement = memo(function RiskManagement({ filteredCases = [] }) {
     const [risks, setRisks] = useState(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY_RISKS);
@@ -618,10 +618,10 @@ function RiskManagement({ filteredCases = [] }) {
             </DetailModal>
         </div>
     );
-}
+});
 
 // ===== 主元件 =====
-export default function OperationsDashboard({ assetData = [], filteredCases = [] }) {
+const OperationsDashboard = memo(function OperationsDashboard({ assetData = [], filteredCases = [] }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {/* ① 設備與營運監控 */}
@@ -665,7 +665,9 @@ export default function OperationsDashboard({ assetData = [], filteredCases = []
             </div>
         </div>
     );
-}
+});
+
+export default OperationsDashboard;
 
 // ===== Helper =====
 function getWeekId() {

@@ -1,4 +1,6 @@
-export default function AnalysisReport({ stats }) {
+import { memo } from 'react';
+
+const AnalysisReport = memo(function AnalysisReport({ stats }) {
     if (!stats) return null;
 
     const { grossMargin, strat, warRate, avgTat, avgBacklog, avgConst, recallRate, slaRate,
@@ -53,4 +55,6 @@ export default function AnalysisReport({ stats }) {
             ))}
         </div>
     );
-}
+});
+
+export default AnalysisReport;

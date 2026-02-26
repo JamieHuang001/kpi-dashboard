@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, memo } from 'react';
 import { SLA_TIERS } from '../../utils/calculations';
 import { exportToPNG } from '../../utils/exportHelpers';
 
 /**
  * 進階 BI 分析面板 — 包含 10 項進階功能
  */
-export default function AdvancedInsights({ stats, dataWarnings, anomalies, monthlyTrends, openDeepAnalysis }) {
+const AdvancedInsights = memo(function AdvancedInsights({ stats, dataWarnings, anomalies, monthlyTrends, openDeepAnalysis }) {
     const pdfRef = useRef(null);
     const [showAllMods, setShowAllMods] = useState({});
     if (!stats) return null;
@@ -312,4 +312,6 @@ export default function AdvancedInsights({ stats, dataWarnings, anomalies, month
             </div>
         </div>
     );
-}
+});
+
+export default AdvancedInsights;

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import {
     Chart as ChartJS, LineElement, PointElement, LinearScale,
     CategoryScale, Filler, LineController
@@ -10,7 +10,7 @@ ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, 
 /**
  * 迷你趨勢折線圖 — 用於 KPI 卡片
  */
-export default function Sparkline({ data, color = '#0284c7', height = 36, showLastDot = true }) {
+const Sparkline = memo(function Sparkline({ data, color = '#0284c7', height = 36, showLastDot = true }) {
     const chartData = useMemo(() => {
         if (!data || data.length < 2) return null;
         return {
@@ -45,20 +45,22 @@ export default function Sparkline({ data, color = '#0284c7', height = 36, showLa
     const yMin = range === 0 ? minVal - 1 : minVal - range * 0.15;
     const yMax = range === 0 ? maxVal + 1 : maxVal + range * 0.15;
 
+    const chartOptions = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false }, datalabels: { display: false } },
+        scales: {
+            x: { display: false },
+            y: { display: false, min: yMin, max: yMax }
+        },
+        elements: { line: { borderCapStyle: 'round' } },
+        animation: { duration: 600 }
+    }), [yMin, yMax]);
+
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
             <div style={{ flex: 1, height }}>
-                <Line data={chartData} options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: false }, datalabels: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { display: false, min: yMin, max: yMax }
-                    },
-                    elements: { line: { borderCapStyle: 'round' } },
-                    animation: { duration: 600 }
-                }} />
+                <Line data={chartData} options={chartOptions} />
             </div>
             {pct !== null && (
                 <div style={{
@@ -72,4 +74,6 @@ export default function Sparkline({ data, color = '#0284c7', height = 36, showLa
             )}
         </div>
     );
-}
+});
+
+export default Sparkline;

@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import Sparkline from '../charts/Sparkline';
 
-export default function KpiCard({ label, value, sub, color, icon, onClick, danger, sparkData, sparkColor }) {
+const KpiCard = memo(function KpiCard({ label, value, sub, color, icon, onClick, danger, sparkData, sparkColor }) {
     return (
         <div
             className="kpi-card"
@@ -19,4 +20,6 @@ export default function KpiCard({ label, value, sub, color, icon, onClick, dange
             )}
         </div>
     );
-}
+});
+
+export default KpiCard;

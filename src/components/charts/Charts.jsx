@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, memo } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Bar, Doughnut } from 'react-chartjs-2';
@@ -8,7 +8,7 @@ import { exportToPNG } from '../../utils/exportHelpers';
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend, ChartDataLabels);
 
 /* ===== Service Trend Bar Chart ===== */
-export function ServiceChart({ cases, granularity, onBarClick }) {
+export const ServiceChart = memo(function ServiceChart({ cases, granularity, onBarClick }) {
     const wrapperRef = useRef(null);
 
     const { labels, datasets } = useMemo(() => {
@@ -72,10 +72,10 @@ export function ServiceChart({ cases, granularity, onBarClick }) {
             </div>
         </div>
     );
-}
+});
 
 /* ===== Parts Horizontal Bar Chart ===== */
-export function PartsChart({ sortedParts }) {
+export const PartsChart = memo(function PartsChart({ sortedParts }) {
     const wrapperRef = useRef(null);
     const labels = sortedParts.map(i => i[0].split('||')[1]?.split(',')[0].trim().substring(0, 18) || '-');
     const data = sortedParts.map(i => i[1]);
@@ -107,11 +107,46 @@ export function PartsChart({ sortedParts }) {
             </div>
         </div>
     );
-}
+});
 
 /* ===== Doughnut Chart (Reusable) ===== */
-export function DoughnutChart({ title, labels: chartLabels, data, colors, height = 220, onClick, bgColor }) {
+export const DoughnutChart = memo(function DoughnutChart({ title, labels: chartLabels, data, colors, height = 220, onClick, bgColor }) {
     const wrapperRef = useRef(null);
+
+    const chartData = useMemo(() => ({
+        labels: chartLabels,
+        datasets: [{ data, backgroundColor: colors, borderWidth: 1, borderColor: 'var(--color-surface)' }]
+    }), [chartLabels, data, colors]);
+
+    const chartOptions = useMemo(() => ({
+        responsive: true, maintainAspectRatio: false, cutout: '55%',
+        onClick: (_, elements) => {
+            if (elements.length > 0 && onClick && chartLabels[0] !== '無資料') {
+                onClick(chartLabels[elements[0].index]);
+            }
+        },
+        plugins: {
+            legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 6 } },
+            datalabels: {
+                display: true,
+                color: '#fff',
+                font: { size: 10, weight: 'bold' },
+                formatter: (value, ctx) => {
+                    if (chartLabels[0] === '無資料' || value === 0) return '';
+                    const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                    if (sum === 0) return '';
+                    const pct = ((value / sum) * 100).toFixed(1);
+                    return pct >= 5 ? `${pct}%` : '';
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(15,23,42,0.9)', padding: 10, cornerRadius: 8,
+                callbacks: {
+                    label: (ctx) => chartLabels[0] === '無資料' ? ' 無資料' : ` ${ctx.label}: ${ctx.parsed}件`
+                }
+            }
+        }
+    }), [chartLabels, onClick]);
 
     return (
         <div ref={wrapperRef} style={{
@@ -125,42 +160,8 @@ export function DoughnutChart({ title, labels: chartLabels, data, colors, height
                     onClick={() => exportToPNG(wrapperRef.current, `${title}.png`)}>📥</button>
             </div>
             <div style={{ height }}>
-                <Doughnut
-                    data={{
-                        labels: chartLabels,
-                        datasets: [{ data, backgroundColor: colors, borderWidth: 1, borderColor: 'var(--color-surface)' }]
-                    }}
-                    options={{
-                        responsive: true, maintainAspectRatio: false, cutout: '55%',
-                        onClick: (_, elements) => {
-                            if (elements.length > 0 && onClick && chartLabels[0] !== '無資料') {
-                                onClick(chartLabels[elements[0].index]);
-                            }
-                        },
-                        plugins: {
-                            legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, padding: 6 } },
-                            datalabels: {
-                                display: true,
-                                color: '#fff',
-                                font: { size: 10, weight: 'bold' },
-                                formatter: (value, ctx) => {
-                                    if (chartLabels[0] === '無資料' || value === 0) return '';
-                                    const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                    if (sum === 0) return '';
-                                    const pct = ((value / sum) * 100).toFixed(1);
-                                    return pct >= 5 ? `${pct}%` : ''; // Only show if >= 5% to avoid clutter on small slices
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(15,23,42,0.9)', padding: 10, cornerRadius: 8,
-                                callbacks: {
-                                    label: (ctx) => chartLabels[0] === '無資料' ? ' 無資料' : ` ${ctx.label}: ${ctx.parsed}件`
-                                }
-                            }
-                        }
-                    }}
-                />
+                <Doughnut data={chartData} options={chartOptions} />
             </div>
         </div>
     );
-}
+});

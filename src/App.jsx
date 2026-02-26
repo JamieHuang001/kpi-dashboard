@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import TopFilterBar from './components/layout/TopFilterBar';
 import KpiCard from './components/cards/KpiCard';
@@ -15,6 +15,94 @@ import OperationsDashboard from './components/cards/OperationsDashboard';
 import CaseMindMap from './components/cards/CaseMindMap';
 import { useKpiData } from './hooks/useKpiData';
 import { mapType, getSlaTarget } from './utils/calculations';
+
+// ===== Module-level constants (avoid re-creation per render) =====
+const ASSET_STATUS_COLORS = {
+  '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6',
+  '租賃': '#10b981', '工具': '#64748b', '報廢': '#ef4444',
+  '找不到': '#dc2626', '租購': '#6366f1',
+};
+const ASSET_TABLE_HEADERS = ['公司', '產品名稱', '序號', '資產編號', '廠牌', '型號', '狀態', '日期', '現況位置', '備註', '合約'];
+const ASSET_PAGE_SIZE = 50;
+
+// ===== Extracted memoized sub-components =====
+const AssetStatusCards = memo(function AssetStatusCards({ assetData }) {
+  const statusCounts = useMemo(() => {
+    const sc = {};
+    assetData.forEach(a => { const s = a.status || '未填寫'; sc[s] = (sc[s] || 0) + 1; });
+    return Object.entries(sc).sort((a, b) => b[1] - a[1]);
+  }, [assetData]);
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 16 }}>
+      {statusCounts.map(([s, c]) => (
+        <div key={s} style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--color-surface-alt)', border: `1px solid ${ASSET_STATUS_COLORS[s] || 'var(--color-border)'}20`, textAlign: 'center' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: ASSET_STATUS_COLORS[s] || 'var(--color-text)' }}>{c}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>{s}</div>
+        </div>
+      ))}
+    </div>
+  );
+});
+
+const AssetTable = memo(function AssetTable({ assetData, assetStatus, showStatus = false }) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.ceil(assetData.length / ASSET_PAGE_SIZE);
+  const paged = assetData.slice(page * ASSET_PAGE_SIZE, (page + 1) * ASSET_PAGE_SIZE);
+
+  return (
+    <div id="assets" className="card" style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>📦 工程部財產總表</h3>
+        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+          共 {assetData.length} 筆資產
+          {showStatus && assetStatus && <span style={{ marginLeft: 8, color: '#059669' }}>{assetStatus}</span>}
+        </div>
+      </div>
+      <AssetStatusCards assetData={assetData} />
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+          <thead>
+            <tr style={{ background: 'var(--color-surface-alt)' }}>
+              {ASSET_TABLE_HEADERS.map(h => (
+                <th key={h} style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--color-text-secondary)', borderBottom: '2px solid var(--color-border)', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((a, i) => (
+              <tr key={`${a.serialNo}-${page * ASSET_PAGE_SIZE + i}`} style={{ borderBottom: '1px solid var(--color-border)', transition: 'background 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-alt)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <td style={{ padding: '6px', whiteSpace: 'nowrap', fontWeight: 600 }}>{a.company}</td>
+                <td style={{ padding: '6px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.productName}</td>
+                <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.serialNo}</td>
+                <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.assetId}</td>
+                <td style={{ padding: '6px' }}>{a.brand}</td>
+                <td style={{ padding: '6px' }}>{a.model}</td>
+                <td style={{ padding: '6px' }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700, background: `${ASSET_STATUS_COLORS[a.status] || '#64748b'}15`, color: ASSET_STATUS_COLORS[a.status] || 'var(--color-text-secondary)' }}>{a.status || '-'}</span>
+                </td>
+                <td style={{ padding: '6px', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.startDate}</td>
+                <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.location}</td>
+                <td style={{ padding: '6px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.notes}</td>
+                <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.contract}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '12px', borderTop: '1px solid var(--color-border)' }}>
+          <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage(0)}>«</button>
+          <button className="btn btn-sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>‹</button>
+          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', padding: '0 8px' }}>{page + 1} / {totalPages}</span>
+          <button className="btn btn-sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>›</button>
+          <button className="btn btn-sm" disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
+        </div>
+      )}
+    </div>
+  );
+});
 
 export default function App() {
   const {
@@ -231,6 +319,16 @@ export default function App() {
     setCoopScores(prev => ({ ...prev, [engId]: Math.max(0, Math.min(100, Number(val) || 0)) }));
   }, []);
 
+  // Stable callbacks for DoughnutChart onClick (avoid inline arrows defeating React.memo)
+  const onDimModel = useCallback((l) => openDeepAnalysis('dimModel', l), [openDeepAnalysis]);
+  const onDimStatus = useCallback((l) => openDeepAnalysis('dimStatus', l), [openDeepAnalysis]);
+  const onDimType = useCallback((l) => openDeepAnalysis('dimType', l), [openDeepAnalysis]);
+  const onDimReq = useCallback((l) => openDeepAnalysis('dimReq', l), [openDeepAnalysis]);
+  const onSlaType = useCallback((l) => openDeepAnalysis('slaType', l), [openDeepAnalysis]);
+  const onSlaModel = useCallback((l) => openDeepAnalysis('slaModel', l), [openDeepAnalysis]);
+  const onWarType = useCallback((l) => openDeepAnalysis('warType', l), [openDeepAnalysis]);
+  const onWarModel = useCallback((l) => openDeepAnalysis('warModel', l), [openDeepAnalysis]);
+
   const tatBins = useMemo(() => {
     const bins = { "1-3天 (優良)": 0, "4-5天 (達標)": 0, "超過5天 (超標)": 0 };
     displayCases.forEach(c => { if (c.tat <= 3) bins["1-3天 (優良)"]++; else if (c.tat <= 5) bins["4-5天 (達標)"]++; else bins["超過5天 (超標)"]++; });
@@ -299,62 +397,8 @@ export default function App() {
 
               {/* 財產總表 (也在首頁顯示) */}
               {assetData.length > 0 && (
-                <div id="assets" className="card" style={{ width: '100%', maxWidth: '100%', marginTop: 16, textAlign: 'left' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>📦 工程部財產總表</h3>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-                      共 {assetData.length} 筆資產
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 16 }}>
-                    {(() => {
-                      const sc = {};
-                      assetData.forEach(a => { const s = a.status || '未填寫'; sc[s] = (sc[s] || 0) + 1; });
-                      const clr = { '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6', '租賃': '#10b981', '工具': '#64748b', '報廢': '#ef4444', '找不到': '#dc2626', '租購': '#6366f1' };
-                      return Object.entries(sc).sort((a, b) => b[1] - a[1]).map(([s, c]) => (
-                        <div key={s} style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--color-surface-alt)', textAlign: 'center' }}>
-                          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: clr[s] || 'var(--color-text)' }}>{c}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>{s}</div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-                      <thead>
-                        <tr style={{ background: 'var(--color-surface-alt)' }}>
-                          {['公司', '產品名稱', '序號', '資產編號', '廠牌', '型號', '狀態', '日期', '現況位置', '備註', '合約'].map(h => (
-                            <th key={h} style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--color-text-secondary)', borderBottom: '2px solid var(--color-border)', whiteSpace: 'nowrap' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {assetData.map((a, i) => {
-                          const clr = { '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6', '租賃': '#10b981', '工具': '#64748b', '報廢': '#ef4444', '找不到': '#dc2626', '租購': '#6366f1' };
-                          return (
-                            <tr key={`lp-${a.serialNo}-${i}`} style={{ borderBottom: '1px solid var(--color-border)' }}
-                              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-alt)'}
-                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                            >
-                              <td style={{ padding: '6px', whiteSpace: 'nowrap', fontWeight: 600 }}>{a.company}</td>
-                              <td style={{ padding: '6px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.productName}</td>
-                              <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.serialNo}</td>
-                              <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.assetId}</td>
-                              <td style={{ padding: '6px' }}>{a.brand}</td>
-                              <td style={{ padding: '6px' }}>{a.model}</td>
-                              <td style={{ padding: '6px' }}>
-                                <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700, background: `${clr[a.status] || '#64748b'}15`, color: clr[a.status] || 'var(--color-text-secondary)' }}>{a.status || '-'}</span>
-                              </td>
-                              <td style={{ padding: '6px', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.startDate}</td>
-                              <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.location}</td>
-                              <td style={{ padding: '6px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.notes}</td>
-                              <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.contract}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                <div style={{ width: '100%', maxWidth: '100%', marginTop: 16, textAlign: 'left' }}>
+                  <AssetTable assetData={assetData} />
                 </div>
               )}
             </div>
@@ -459,10 +503,10 @@ export default function App() {
 
                   {/* Dimension Counters Row */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: 12, marginBottom: 16 }}>
-                    <DoughnutChart title="📊 機型分佈" {...deepAnalysis.dimModel} onClick={l => openDeepAnalysis('dimModel', l)} />
-                    <DoughnutChart title="📊 狀態分佈" {...deepAnalysis.dimStatus} onClick={l => openDeepAnalysis('dimStatus', l)} />
-                    <DoughnutChart title="📊 維修類型" {...deepAnalysis.dimType} onClick={l => openDeepAnalysis('dimType', l)} />
-                    <DoughnutChart title="📊 需求分佈" {...deepAnalysis.dimReq} onClick={l => openDeepAnalysis('dimReq', l)} />
+                    <DoughnutChart title="📊 機型分佈" {...deepAnalysis.dimModel} onClick={onDimModel} />
+                    <DoughnutChart title="📊 狀態分佈" {...deepAnalysis.dimStatus} onClick={onDimStatus} />
+                    <DoughnutChart title="📊 維修類型" {...deepAnalysis.dimType} onClick={onDimType} />
+                    <DoughnutChart title="📊 需求分佈" {...deepAnalysis.dimReq} onClick={onDimReq} />
                   </div>
 
                   {/* 維護合約 Callout */}
@@ -483,13 +527,13 @@ export default function App() {
                   {/* SLA & Warranty doughnuts */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: 12 }}>
                     <DoughnutChart title="🚨 SLA逾期 - 服務分類" {...deepAnalysis.slaType}
-                      bgColor="rgba(225, 29, 72, 0.04)" onClick={l => openDeepAnalysis('slaType', l)} />
+                      bgColor="rgba(225, 29, 72, 0.04)" onClick={onSlaType} />
                     <DoughnutChart title="🚨 SLA逾期 - 高頻機型" {...deepAnalysis.slaModel}
-                      bgColor="rgba(225, 29, 72, 0.04)" onClick={l => openDeepAnalysis('slaModel', l)} />
+                      bgColor="rgba(225, 29, 72, 0.04)" onClick={onSlaModel} />
                     <DoughnutChart title="🛡️ 保固內 - 服務分類" {...deepAnalysis.warType}
-                      bgColor="rgba(2, 132, 199, 0.04)" onClick={l => openDeepAnalysis('warType', l)} />
+                      bgColor="rgba(2, 132, 199, 0.04)" onClick={onWarType} />
                     <DoughnutChart title="🛡️ 保固內 - 機型分佈" {...deepAnalysis.warModel}
-                      bgColor="rgba(2, 132, 199, 0.04)" onClick={l => openDeepAnalysis('warModel', l)} />
+                      bgColor="rgba(2, 132, 199, 0.04)" onClick={onWarModel} />
                   </div>
 
                   {/* 保固內案件 - 細部組成統計 */}
@@ -579,88 +623,7 @@ export default function App() {
 
               {/* 財產總表 */}
               {assetData.length > 0 && (
-                <div id="assets" className="card" style={{ marginBottom: 24 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>📦 工程部財產總表</h3>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-                      共 {assetData.length} 筆資產
-                      {assetStatus && <span style={{ marginLeft: 8, color: '#059669' }}>{assetStatus}</span>}
-                    </div>
-                  </div>
-
-                  {/* Summary cards */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 16 }}>
-                    {(() => {
-                      const statusCounts = {};
-                      assetData.forEach(a => {
-                        const s = a.status || '未填寫';
-                        statusCounts[s] = (statusCounts[s] || 0) + 1;
-                      });
-                      const statusColors = {
-                        '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6',
-                        '租賺': '#10b981', '工具': '#64748b', '報廢': '#ef4444',
-                        '找不到': '#dc2626', '租購': '#6366f1',
-                      };
-                      return Object.entries(statusCounts).sort((a, b) => b[1] - a[1]).map(([s, count]) => (
-                        <div key={s} style={{
-                          padding: '10px 12px', borderRadius: 8,
-                          background: 'var(--color-surface-alt)',
-                          border: `1px solid ${statusColors[s] || 'var(--color-border)'}20`,
-                          textAlign: 'center'
-                        }}>
-                          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: statusColors[s] || 'var(--color-text)' }}>{count}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>{s}</div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-
-                  {/* Asset table */}
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-                      <thead>
-                        <tr style={{ background: 'var(--color-surface-alt)' }}>
-                          {['公司', '產品名稱', '序號', '資產編號', '廠牌', '型號', '狀態', '日期', '現況位置', '備註', '合約'].map(h => (
-                            <th key={h} style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--color-text-secondary)', borderBottom: '2px solid var(--color-border)', whiteSpace: 'nowrap' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {assetData.map((a, i) => {
-                          const statusColors = {
-                            '保養合約': '#0284c7', '備機': '#f59e0b', '借用': '#8b5cf6',
-                            '租賺': '#10b981', '工具': '#64748b', '報廢': '#ef4444',
-                            '找不到': '#dc2626', '租購': '#6366f1',
-                          };
-                          return (
-                            <tr key={`${a.serialNo}-${i}`} style={{ borderBottom: '1px solid var(--color-border)', transition: 'background 0.15s' }}
-                              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-alt)'}
-                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                            >
-                              <td style={{ padding: '6px', whiteSpace: 'nowrap', fontWeight: 600 }}>{a.company}</td>
-                              <td style={{ padding: '6px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.productName}</td>
-                              <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.serialNo}</td>
-                              <td style={{ padding: '6px', fontFamily: 'monospace', fontSize: '0.72rem' }}>{a.assetId}</td>
-                              <td style={{ padding: '6px' }}>{a.brand}</td>
-                              <td style={{ padding: '6px' }}>{a.model}</td>
-                              <td style={{ padding: '6px' }}>
-                                <span style={{
-                                  padding: '2px 8px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700,
-                                  background: `${statusColors[a.status] || '#64748b'}15`,
-                                  color: statusColors[a.status] || 'var(--color-text-secondary)',
-                                }}>{a.status || '-'}</span>
-                              </td>
-                              <td style={{ padding: '6px', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.startDate}</td>
-                              <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.location}</td>
-                              <td style={{ padding: '6px', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.notes}</td>
-                              <td style={{ padding: '6px', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.72rem' }}>{a.contract}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                <AssetTable assetData={assetData} assetStatus={assetStatus} showStatus={true} />
               )}
             </>
           )}

@@ -269,9 +269,11 @@ export function useKpiData() {
             skillMatrix[c.engineer][c.model] = (skillMatrix[c.engineer][c.model] || 0) + 1;
         });
         const allSkillModels = [...new Set(cases.filter(c => c.model && c.model !== '-').map(c => c.model))];
-        const topSkillModels = Object.entries(
-            allSkillModels.reduce((acc, m) => { acc[m] = (acc[m] || 0) + cases.filter(c => c.model === m).length; return acc; }, {})
-        ).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+        // Use existing model counts from strat.models instead of re-scanning cases for each model
+        const modelCountMap = {};
+        cases.forEach(c => { if (c.model && c.model !== '-') modelCountMap[c.model] = (modelCountMap[c.model] || 0) + 1; });
+        const topSkillModels = Object.entries(modelCountMap)
+            .sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
 
         return {
             total, strat, grossMargin, avgTat, avgBacklog, avgConst,
