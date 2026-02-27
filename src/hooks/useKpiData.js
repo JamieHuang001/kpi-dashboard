@@ -107,9 +107,18 @@ export function useKpiData() {
         const engStats = {};
         let total = { cases: 0, points: 0, tatSum: 0, recallNum: 0, recallDenom: 0 };
         let strat = {
-            revenue: 0, extCost: 0, partsCost: 0, warrantyCount: 0, tatOutliers: 0,
+            revenue: 0, extCost: 0, partsCost: 0, laborCost: 0, warrantyCount: 0, tatOutliers: 0,
             totalPending: 0, totalBacklog: 0, totalConst: 0,
+            warRepairTotal: 0, warRepairTypes: { '一般維修': 0, '困難維修': 0, '外修判定': 0 },
+            warRepairBrands: { 'Philips': 0, 'ResMed': 0, 'Other': 0 },
             models: {}, parts: {}
+        };
+
+        const getBrand = (modelStr) => {
+            const m = (modelStr || '').toLowerCase();
+            if (m.includes('airsense') || m.includes('lumis') || m.includes('resmed') || m.includes('s9') || m.includes('s10') || m.includes('astral') || m.includes('stellar')) return 'ResMed';
+            if (m.includes('dreamstation') || m.includes('trilogy') || m.includes('bipap') || m.includes('philips') || m.includes('v60') || m.includes('v30') || m.includes('coughassist') || m.includes('everflo')) return 'Philips';
+            return 'Other';
         };
 
         cases.forEach(c => {
@@ -132,7 +141,21 @@ export function useKpiData() {
 
             strat.revenue += c.revenue || 0;
             strat.extCost += c.extCost || 0;
-            if (c.warranty) strat.warrantyCount++;
+            const laborCost = (c.points || 0) * 1179;
+            strat.laborCost += laborCost;
+
+            if (c.warranty) {
+                strat.warrantyCount++;
+                const mappedT = mapType(c.type);
+                if (mappedT === '一般維修' || mappedT === '困難維修' || mappedT === '外修判定') {
+                    strat.warRepairTotal++;
+                    if (strat.warRepairTypes[mappedT] !== undefined) {
+                        strat.warRepairTypes[mappedT]++;
+                    }
+                    const brand = getBrand(c.model);
+                    strat.warRepairBrands[brand] = (strat.warRepairBrands[brand] || 0) + 1;
+                }
+            }
             if (c.tat > 5) strat.tatOutliers++;
             strat.totalPending += (c.pendingDays || 0);
             strat.totalBacklog += (c.backlogDays || 0);
@@ -391,10 +414,107 @@ export function useKpiData() {
         return alerts;
     }, [monthlyTrends]);
 
+    // ⑩ 歷史同期比對 (Comparative Analytics)
+    const historicalStats = useMemo(() => {
+        if (!allCases.length || !dateRange.start || !dateRange.end) return null;
+
+        const curStart = new Date(dateRange.start); curStart.setHours(0, 0, 0, 0);
+        const curEnd = new Date(dateRange.end); curEnd.setHours(23, 59, 59, 999);
+        const diffTime = Math.abs(curEnd - curStart);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // How many days is the current selected period?
+
+        if (diffDays <= 0) return null;
+
+        // Helper to aggregate based on date bounds
+        const getAggregateForPeriod = (sDate, eDate) => {
+            let casesCount = 0;
+            let extCost = 0;
+            let partsCost = 0;
+            let revenue = 0;
+            let tatSum = 0;
+            let tatOutliers = 0;
+
+            allCases.forEach(c => {
+                if (!c.date || c.date < sDate || c.date > eDate) return;
+                casesCount++;
+                tatSum += c.tat || 0;
+                revenue += c.revenue || 0;
+                extCost += c.extCost || 0;
+                if ((c.tat || 0) > 5) tatOutliers++;
+
+                let pc = 0;
+                const isExtRepair = (c.type || '').includes('外修');
+                c.parts.forEach(p => { pc += getPartCost(p.no); });
+                if (!isExtRepair) partsCost += pc;
+            });
+
+            const grossMargin = revenue - extCost - partsCost;
+            return {
+                cases: casesCount,
+                grossMargin,
+                avgTat: casesCount ? parseFloat((tatSum / casesCount).toFixed(1)) : 0,
+                slaRate: casesCount ? parseFloat(((tatOutliers / casesCount) * 100).toFixed(1)) : 0
+            };
+        };
+
+        // Current period exactly as selected
+        const current = getAggregateForPeriod(curStart, curEnd);
+
+        // MoM: Same length of days, immediately preceding
+        const momEnd = new Date(curStart.getTime() - 1);
+        const momStart = new Date(momEnd.getTime() - (diffDays * 24 * 60 * 60 * 1000) + 1);
+        const mom = getAggregateForPeriod(momStart, momEnd);
+
+        // QoQ: Same length of days, shifted back by ~90 days
+        const qoqEnd = new Date(curEnd); qoqEnd.setDate(qoqEnd.getDate() - 90);
+        const qoqStart = new Date(curStart); qoqStart.setDate(qoqStart.getDate() - 90);
+        const qoq = getAggregateForPeriod(qoqStart, qoqEnd);
+
+        // YoY: Same length of days, shifted back by 1 year (365 days)
+        const yoyEnd = new Date(curEnd); yoyEnd.setFullYear(yoyEnd.getFullYear() - 1);
+        const yoyStart = new Date(curStart); yoyStart.setFullYear(yoyStart.getFullYear() - 1);
+        const yoy = getAggregateForPeriod(yoyStart, yoyEnd);
+
+        const calcDelta = (cur, old) => {
+            if (old === 0 && cur === 0) return 0;
+            if (old === 0) return 100; // 100% growth if prev was 0
+            return parseFloat((((cur - old) / old) * 100).toFixed(1));
+        };
+
+        return {
+            periodDays: diffDays,
+            current,
+            mom: {
+                ...mom, deltas: {
+                    cases: calcDelta(current.cases, mom.cases),
+                    grossMargin: calcDelta(current.grossMargin, mom.grossMargin),
+                    avgTat: calcDelta(current.avgTat, mom.avgTat),
+                    slaRate: current.slaRate - mom.slaRate // absolute diff for percentages
+                }
+            },
+            qoq: {
+                ...qoq, deltas: {
+                    cases: calcDelta(current.cases, qoq.cases),
+                    grossMargin: calcDelta(current.grossMargin, qoq.grossMargin),
+                    avgTat: calcDelta(current.avgTat, qoq.avgTat),
+                    slaRate: current.slaRate - qoq.slaRate
+                }
+            },
+            yoy: {
+                ...yoy, deltas: {
+                    cases: calcDelta(current.cases, yoy.cases),
+                    grossMargin: calcDelta(current.grossMargin, yoy.grossMargin),
+                    avgTat: calcDelta(current.avgTat, yoy.avgTat),
+                    slaRate: current.slaRate - yoy.slaRate
+                }
+            }
+        };
+    }, [allCases, dateRange]);
+
     return {
         allCases, filteredCases, displayCases, dateRange, setDateRange,
         points, setPoints, targetPoints, setTargetPoints,
-        encoding, setEncoding, status, isLoaded, stats,
+        encoding, setEncoding, status, isLoaded, stats, historicalStats,
         drillDownLabel, granularity, setGranularity,
         monthlyTrends, dataWarnings, anomalies,
         loadFile, recalculate, applyDrillDown, clearDrillDown,

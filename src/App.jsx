@@ -13,6 +13,7 @@ import AnalysisReport from './components/cards/AnalysisReport';
 import AdvancedInsights from './components/cards/AdvancedInsights';
 import OperationsDashboard from './components/cards/OperationsDashboard';
 import CaseMindMap from './components/cards/CaseMindMap';
+import ComparativeAnalytics from './components/cards/ComparativeAnalytics';
 import { useKpiData } from './hooks/useKpiData';
 import { mapType, getSlaTarget } from './utils/calculations';
 
@@ -26,7 +27,7 @@ const ASSET_TABLE_HEADERS = ['公司', '產品名稱', '序號', '資產編號',
 const ASSET_PAGE_SIZE = 50;
 
 // ===== Extracted memoized sub-components =====
-const AssetStatusCards = memo(function AssetStatusCards({ assetData }) {
+const AssetStatusCards = memo(function AssetStatusCards({ assetData, activeStatus, onStatusSelect }) {
   const statusCounts = useMemo(() => {
     const sc = {};
     assetData.forEach(a => { const s = a.status || '未填寫'; sc[s] = (sc[s] || 0) + 1; });
@@ -34,31 +35,57 @@ const AssetStatusCards = memo(function AssetStatusCards({ assetData }) {
   }, [assetData]);
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 16 }}>
-      {statusCounts.map(([s, c]) => (
-        <div key={s} style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--color-surface-alt)', border: `1px solid ${ASSET_STATUS_COLORS[s] || 'var(--color-border)'}20`, textAlign: 'center' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: ASSET_STATUS_COLORS[s] || 'var(--color-text)' }}>{c}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>{s}</div>
-        </div>
-      ))}
+      {statusCounts.map(([s, c]) => {
+        const isActive = activeStatus === s;
+        return (
+          <div key={s}
+            onClick={() => onStatusSelect(isActive ? null : s)}
+            style={{
+              padding: '10px 12px', borderRadius: 8,
+              background: isActive ? `${ASSET_STATUS_COLORS[s] || '#fff'}15` : 'var(--color-surface-alt)',
+              border: `1px solid ${ASSET_STATUS_COLORS[s] || 'var(--color-border)'}${isActive ? '80' : '20'}`,
+              textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s',
+              transform: isActive ? 'scale(1.02)' : 'none',
+              boxShadow: isActive ? `0 4px 12px ${ASSET_STATUS_COLORS[s] || '#fff'}20` : 'none'
+            }}
+          >
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: ASSET_STATUS_COLORS[s] || 'var(--color-text)' }}>{c}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>{s}</div>
+          </div>
+        )
+      })}
     </div>
   );
 });
 
 const AssetTable = memo(function AssetTable({ assetData, assetStatus, showStatus = false }) {
   const [page, setPage] = useState(0);
-  const totalPages = Math.ceil(assetData.length / ASSET_PAGE_SIZE);
-  const paged = assetData.slice(page * ASSET_PAGE_SIZE, (page + 1) * ASSET_PAGE_SIZE);
+  const [filterStatus, setFilterStatus] = useState(null);
+
+  const filteredData = useMemo(() => {
+    if (!filterStatus) return assetData;
+    return assetData.filter(a => (a.status || '未填寫') === filterStatus);
+  }, [assetData, filterStatus]);
+
+  const totalPages = Math.ceil(filteredData.length / ASSET_PAGE_SIZE);
+  // Ensure we don't end up on an invalid page after filtering
+  useEffect(() => {
+    if (page >= totalPages && totalPages > 0) setPage(Math.max(0, totalPages - 1));
+  }, [totalPages, page]);
+
+  const paged = filteredData.slice(page * ASSET_PAGE_SIZE, (page + 1) * ASSET_PAGE_SIZE);
 
   return (
     <div id="assets" className="card" style={{ marginBottom: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>📦 工程部財產總表</h3>
         <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-          共 {assetData.length} 筆資產
+          共 {filteredData.length} 筆資產
           {showStatus && assetStatus && <span style={{ marginLeft: 8, color: '#059669' }}>{assetStatus}</span>}
         </div>
       </div>
-      <AssetStatusCards assetData={assetData} />
+      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginBottom: 8 }}>(點擊下方分類卡片可篩選表格，再次點擊取消)</div>
+      <AssetStatusCards assetData={assetData} activeStatus={filterStatus} onStatusSelect={setFilterStatus} />
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
           <thead>
@@ -69,7 +96,13 @@ const AssetTable = memo(function AssetTable({ assetData, assetStatus, showStatus
             </tr>
           </thead>
           <tbody>
-            {paged.map((a, i) => (
+            {paged.length === 0 ? (
+              <tr>
+                <td colSpan={ASSET_TABLE_HEADERS.length} style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-secondary)' }}>
+                  無此分類資料
+                </td>
+              </tr>
+            ) : paged.map((a, i) => (
               <tr key={`${a.serialNo}-${page * ASSET_PAGE_SIZE + i}`} style={{ borderBottom: '1px solid var(--color-border)', transition: 'background 0.15s' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-alt)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
@@ -108,7 +141,7 @@ export default function App() {
   const {
     allCases, filteredCases, displayCases, dateRange, setDateRange,
     points, setPoints, targetPoints, setTargetPoints,
-    encoding, setEncoding, status, isLoaded, stats,
+    encoding, setEncoding, status, isLoaded, stats, historicalStats,
     drillDownLabel, granularity, setGranularity,
     monthlyTrends, dataWarnings, anomalies,
     loadFile, recalculate, applyDrillDown, clearDrillDown,
@@ -365,7 +398,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 24 }}>
               <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #0284c7, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2rem', fontWeight: 800 }}>YD</div>
               <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>永定生物科技 技術部 KPI 儀表板</h1>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.1 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.2 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
 
               {/* Google Sheets 一鍵下載 */}
               <button onClick={loadFromGoogleSheets} disabled={isGoogleLoading} style={{
@@ -417,13 +450,49 @@ export default function App() {
               {/* Strategic KPIs */}
               <div id="dashboard" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 16, marginBottom: 20, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 'var(--radius)', border: '1px dashed var(--color-border)' }}>
                 <KpiCard icon="💰" label="預估部門維修毛利 (NT$)" value={stats ? `$${stats.grossMargin.toLocaleString()}` : '$0'} color="#8b5cf6"
-                  sub={stats ? `收費: $${stats.strat.revenue.toLocaleString()} | 外修: $${stats.strat.extCost.toLocaleString()} | 零件: $${stats.strat.partsCost.toLocaleString()}` : ''}
+                  sub={
+                    stats ? (
+                      <div style={{ fontSize: '0.75rem', marginTop: 4, lineHeight: 1.4 }}>
+                        <div><span style={{ color: 'var(--color-text-secondary)' }}>收費：</span>${stats.strat.revenue.toLocaleString()}</div>
+                        <div><span style={{ color: 'var(--color-text-secondary)' }}>外修：</span>${stats.strat.extCost.toLocaleString()}</div>
+                        <div><span style={{ color: 'var(--color-text-secondary)' }}>零件：</span>${stats.strat.partsCost.toLocaleString()}</div>
+                        <div><span style={{ color: 'var(--color-text-secondary)' }}>點數工時成本 (預估)：</span><span style={{ color: '#f43f5e' }}>-${stats.strat.laborCost.toLocaleString()}</span></div>
+                        <div style={{ marginTop: 2, paddingTop: 2, borderTop: '1px solid var(--color-border)', fontWeight: 'bold' }}>
+                          <span style={{ color: 'var(--color-text-secondary)' }}>真實淨利：</span>${(stats.grossMargin - stats.strat.laborCost).toLocaleString()}
+                        </div>
+                      </div>
+                    ) : ''
+                  }
                   sparkData={monthlyTrends?.grossMargin} sparkColor="#8b5cf6" />
                 <KpiCard icon="⏳" label="SLA 服務超標率" value={stats ? `${stats.slaRate}%` : '0%'} color="#f43f5e"
                   danger={stats && parseFloat(stats.slaRate) > 10} onClick={openSlaModal}
                   sub={stats ? `超標件數: ${stats.strat.tatOutliers} 件 (點擊查看明細)` : ''} />
                 <KpiCard icon="🛡️" label="保固內案件佔比" value={stats ? `${stats.warRate}%` : '0%'} color="#0ea5e9"
-                  sub={stats ? `保固內: ${stats.strat.warrantyCount} 件` : ''} />
+                  sub={
+                    stats ? (
+                      <div style={{ fontSize: '0.75rem', marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ background: 'rgba(14, 165, 233, 0.1)', padding: '4px 8px', borderRadius: 4, fontWeight: 700 }}>總保固件數：{stats.strat.warrantyCount} 件</div>
+                        {stats.strat.warrantyCount > 0 && (
+                          <div style={{ borderLeft: '2px solid rgba(14, 165, 233, 0.3)', paddingLeft: 8 }}>
+                            <div style={{ color: 'var(--color-text)', fontWeight: 600, marginBottom: 2 }}>
+                              真實維修件數：<span style={{ color: '#0ea5e9' }}>{stats.strat.warRepairTotal}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginLeft: 4 }}>({((stats.strat.warRepairTotal / stats.strat.warrantyCount) * 100).toFixed(1)}%)</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
+                              <div>一般維修: {stats.strat.warRepairTypes['一般維修'] || 0}</div>
+                              <div>困難維修: {stats.strat.warRepairTypes['困難維修'] || 0}</div>
+                              <div>外修判定: {stats.strat.warRepairTypes['外修判定'] || 0}</div>
+                            </div>
+                            <div style={{ marginTop: 4, display: 'flex', gap: 8, fontSize: '0.7rem', fontWeight: 600 }}>
+                              <div style={{ color: '#0284c7' }}>Philips: {stats.strat.warRepairBrands['Philips'] || 0}</div>
+                              <div style={{ color: '#2563eb' }}>ResMed: {stats.strat.warRepairBrands['ResMed'] || 0}</div>
+                              {stats.strat.warRepairBrands['Other'] > 0 && <div style={{ color: '#64748b' }}>Other: {stats.strat.warRepairBrands['Other']}</div>}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : ''
+                  } />
               </div>
 
               {/* Operational KPIs with Sparklines */}
@@ -596,6 +665,11 @@ export default function App() {
 
               {/* Analysis Report */}
               <div style={{ marginBottom: 24 }}><AnalysisReport stats={stats} /></div>
+
+              {/* Comparative Analytics & Consultant Insights */}
+              <div style={{ marginBottom: 24 }}>
+                <ComparativeAnalytics historicalStats={historicalStats} />
+              </div>
 
               {/* Advanced BI Insights */}
               <div id="advanced" style={{ marginBottom: 24 }}>

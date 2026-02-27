@@ -7,6 +7,7 @@ import { mapType, SERVICE_COLORS } from '../../utils/calculations';
 const CaseMindMap = memo(function CaseMindMap({ allCases = [] }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedNode, setSelectedNode] = useState(null);
+    const [sortMode, setSortMode] = useState('count'); // 'count' or 'date'
 
     // 搜尋結果
     const searchResult = useMemo(() => {
@@ -32,13 +33,19 @@ const CaseMindMap = memo(function CaseMindMap({ allCases = [] }) {
             if (c.model && c.model !== '-') snGroups[sn].model = c.model;
         });
 
-        // 每組按日期排序
-        Object.values(snGroups).forEach(g => {
+        // 每組內案件按日期排序
+        const finalGroups = Object.values(snGroups).map(g => {
             g.cases.sort((a, b) => (a.date || 0) - (b.date || 0));
+            return g;
         });
 
-        return { groups: Object.values(snGroups), totalCases: matched.length };
-    }, [searchQuery, allCases]);
+        // 組別數量排序
+        if (sortMode === 'count') {
+            finalGroups.sort((a, b) => b.cases.length - a.cases.length);
+        }
+
+        return { groups: finalGroups, totalCases: matched.length };
+    }, [searchQuery, allCases, sortMode]);
 
     // 生成建議
     const generateInsights = (group) => {
@@ -163,8 +170,31 @@ const CaseMindMap = memo(function CaseMindMap({ allCases = [] }) {
                 {/* Search Result - Mind Map Style */}
                 {searchResult && (
                     <div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', marginBottom: 16, fontWeight: 600 }}>
-                            找到 {searchResult.groups.length} 組序號，共 {searchResult.totalCases} 筆案件
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                                找到 {searchResult.groups.length} 組序號，共 {searchResult.totalCases} 筆案件
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: '0.75rem', fontWeight: 600 }}>
+                                <span style={{ color: 'var(--color-text-secondary)' }}>以什麼排序：</span>
+                                <button
+                                    onClick={() => setSortMode('count')}
+                                    style={{
+                                        padding: '4px 10px', borderRadius: 6, border: '1px solid var(--color-border)', cursor: 'pointer',
+                                        background: sortMode === 'count' ? 'var(--color-primary)' : 'var(--color-surface)',
+                                        color: sortMode === 'count' ? '#fff' : 'var(--color-text-secondary)',
+                                        transition: 'all 0.2s',
+                                    }}
+                                >維修次數 ⬇</button>
+                                <button
+                                    onClick={() => setSortMode('date')}
+                                    style={{
+                                        padding: '4px 10px', borderRadius: 6, border: '1px solid var(--color-border)', cursor: 'pointer',
+                                        background: sortMode === 'date' ? 'var(--color-primary)' : 'var(--color-surface)',
+                                        color: sortMode === 'date' ? '#fff' : 'var(--color-text-secondary)',
+                                        transition: 'all 0.2s',
+                                    }}
+                                >設備名稱</button>
+                            </div>
                         </div>
 
                         {searchResult.groups.map(group => {
