@@ -15,7 +15,7 @@ import OperationsDashboard from './components/cards/OperationsDashboard';
 import CaseMindMap from './components/cards/CaseMindMap';
 import ComparativeAnalytics from './components/cards/ComparativeAnalytics';
 import { useKpiData } from './hooks/useKpiData';
-import { mapType, getSlaTarget } from './utils/calculations';
+import { mapType, getSlaTarget, TICKET_CATEGORIES } from './utils/calculations';
 
 // ===== Module-level constants (avoid re-creation per render) =====
 const ASSET_STATUS_COLORS = {
@@ -143,6 +143,7 @@ export default function App() {
     points, setPoints, targetPoints, setTargetPoints,
     encoding, setEncoding, status, isLoaded, stats, historicalStats,
     drillDownLabel, granularity, setGranularity,
+    selectedCategory, setSelectedCategory,
     monthlyTrends, dataWarnings, anomalies,
     loadFile, recalculate, applyDrillDown, clearDrillDown,
     loadFromGoogleSheets, isGoogleLoading,
@@ -385,7 +386,7 @@ export default function App() {
           encoding={encoding} onEncodingChange={setEncoding}
           onFileUpload={loadFile} status={status}
           points={points} onPointsChange={setPoints}
-          drillDownLabel={drillDownLabel} onClearDrillDown={clearDrillDown}
+          drillDownLabel={drillDownLabel} selectedCategory={selectedCategory} onClearDrillDown={clearDrillDown}
           onToggleSidebar={() => setSidebarOpen(s => !s)}
           onGoogleSheetLoad={loadFromGoogleSheets}
           onAssetLoad={loadAssetSheet}
@@ -398,7 +399,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 24 }}>
               <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #0284c7, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2rem', fontWeight: 800 }}>YD</div>
               <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>永定生物科技 技術部 KPI 儀表板</h1>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.2 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.3 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
 
               {/* Google Sheets 一鍵下載 */}
               <button onClick={loadFromGoogleSheets} disabled={isGoogleLoading} style={{
@@ -494,6 +495,76 @@ export default function App() {
                     ) : ''
                   } />
               </div>
+
+              {/* 四大業務板塊分析 */}
+              {stats?.strat?.categories && (
+                <div style={{ marginBottom: 24 }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-primary)' }}>📌 四大業務板塊分析</h3>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginBottom: 12 }}>(點擊下方卡片即可全局篩選資料)</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                    {[
+                      { key: TICKET_CATEGORIES.REPAIR, icon: '🔧', color: '#dc2626', desc: '故障排除與零件更換' },
+                      { key: TICKET_CATEGORIES.MAINTENANCE, icon: '🛡️', color: '#16a34a', desc: '定期保養與合約履約' },
+                      { key: TICKET_CATEGORIES.INSTALLATION, icon: '📦', color: '#d97706', desc: '新機交付與專案建置' },
+                      { key: TICKET_CATEGORIES.REFURBISHMENT, icon: '♻️', color: '#0284c7', desc: '內部設備資產整備' },
+                    ].map(cat => {
+                      const cData = stats.strat.categories[cat.key];
+                      if (!cData) return null;
+                      const pct = stats.total.cases > 0 ? ((cData.cases / stats.total.cases) * 100).toFixed(1) : 0;
+                      const margin = (cData.revenue || 0) - (cData.extCost || 0) - (cData.partsCost || 0);
+                      const isSelected = selectedCategory === cat.key;
+
+                      return (
+                        <div key={cat.key} className="card"
+                          onClick={() => setSelectedCategory(isSelected ? null : cat.key)}
+                          style={{
+                            padding: 16, borderTop: `4px solid ${cat.color}`, background: isSelected ? `${cat.color}10` : 'var(--color-surface)',
+                            display: 'flex', flexDirection: 'column', cursor: 'pointer',
+                            border: isSelected ? `2px solid ${cat.color}` : '1px solid var(--color-border)',
+                            transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                            boxShadow: isSelected ? `0 8px 16px ${cat.color}30` : 'inherit',
+                            transition: 'all 0.2s ease-in-out'
+                          }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                            <div style={{ fontSize: '1.8rem' }}>{cat.icon}</div>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-text)' }}>{cat.key}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{cat.desc}</div>
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>案量佔比</span>
+                              <span style={{ fontWeight: 800, color: cat.color, fontSize: '1.1rem' }}>{cData.cases} <span style={{ fontSize: '0.8rem' }}>件 ({pct}%)</span></span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>貢獻工時點數</span>
+                              <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{cData.points.toFixed(1)} pt</span>
+                            </div>
+                            {cat.key === TICKET_CATEGORIES.REPAIR && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--color-border)' }}>
+                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>報修毛利</span>
+                                <span style={{ fontWeight: 800, color: '#8b5cf6' }}>
+                                  ${margin.toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                            {cat.key === TICKET_CATEGORIES.MAINTENANCE && (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--color-border)' }}>
+                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>保養收益</span>
+                                <span style={{ fontWeight: 800, color: '#10b981' }}>
+                                  ${cData.revenue.toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Operational KPIs with Sparklines */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 12, marginBottom: 24 }}>

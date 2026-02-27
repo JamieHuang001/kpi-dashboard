@@ -60,10 +60,48 @@ export function parseDate(s) {
 }
 
 /**
- * 判斷是否為維修類型
+ * 服務類型四大分類系統
+ */
+export const TICKET_CATEGORIES = {
+    REPAIR: '維修',
+    MAINTENANCE: '保養',
+    INSTALLATION: '裝機與專案',
+    REFURBISHMENT: '內部整備'
+};
+
+export const TICKET_TYPES = {
+    // 維修類
+    "一般維修": { category: TICKET_CATEGORIES.REPAIR, billable: true },
+    "困難維修": { category: TICKET_CATEGORIES.REPAIR, billable: true },
+    "外修判定": { category: TICKET_CATEGORIES.REPAIR, billable: false },
+
+    // 保養類
+    "居家保養": { category: TICKET_CATEGORIES.MAINTENANCE },
+    "醫院保養": { category: TICKET_CATEGORIES.MAINTENANCE },
+    "簡易檢測": { category: TICKET_CATEGORIES.MAINTENANCE },
+
+    // 裝機類
+    "居家裝機": { category: TICKET_CATEGORIES.INSTALLATION },
+    "醫院安裝": { category: TICKET_CATEGORIES.INSTALLATION },
+    "睡眠中心": { category: TICKET_CATEGORIES.INSTALLATION },
+
+    // 內部整備
+    "批量整新": { category: TICKET_CATEGORIES.REFURBISHMENT },
+
+    // 預設
+    "其他預設": { category: '其他' }
+};
+
+export function getCategory(mappedType) {
+    return TICKET_TYPES[mappedType]?.category || '其他';
+}
+
+/**
+ * 判斷是否為實質維修類型 (不再包含保養與檢測)
  */
 export function isRepairType(t) {
-    return (t || "").includes("檢測") || (t || "").includes("維修") || (t || "").includes("外修");
+    const mt = mapType(t);
+    return getCategory(mt) === TICKET_CATEGORIES.REPAIR;
 }
 
 /**

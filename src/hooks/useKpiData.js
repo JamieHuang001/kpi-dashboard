@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { parseCSVFile, processCSVText } from '../utils/dataParser';
-import { calculatePoints, getPartCost, mapType, isRepairType, getSlaTarget, calcGiniIndex, DEFAULT_POINTS } from '../utils/calculations';
+import { calculatePoints, getPartCost, mapType, isRepairType, getSlaTarget, calcGiniIndex, DEFAULT_POINTS, getCategory, TICKET_CATEGORIES } from '../utils/calculations';
 import { fetchRepairRecordsCSV, fetchAssetInventoryCSV, parseAssetCSV } from '../utils/googleSheetsLoader';
 
 export function useKpiData() {
@@ -17,6 +17,7 @@ export function useKpiData() {
     const [assetData, setAssetData] = useState([]);
     const [assetStatus, setAssetStatus] = useState('');
     const [drillDownLabel, setDrillDownLabel] = useState(null);
+    const [selectedCategory, setSelectedCategory] = useState(null);
     const [granularity, setGranularity] = useState('month');
 
     const loadFile = useCallback(async (file) => {
@@ -95,9 +96,15 @@ export function useKpiData() {
         });
 
         setFilteredCases(filtered);
-        setDisplayCases(filtered);
+
+        let initialDisplay = filtered;
+        if (selectedCategory) {
+            initialDisplay = filtered.filter(c => getCategory(mapType(c.type)) === selectedCategory);
+        }
+
+        setDisplayCases(initialDisplay);
         setDrillDownLabel(null);
-    }, [allCases, dateRange, points]);
+    }, [allCases, dateRange, points, selectedCategory]);
 
     // Stats derived from displayCases
     const stats = useMemo(() => {
@@ -111,7 +118,14 @@ export function useKpiData() {
             totalPending: 0, totalBacklog: 0, totalConst: 0,
             warRepairTotal: 0, warRepairTypes: { '一般維修': 0, '困難維修': 0, '外修判定': 0 },
             warRepairBrands: { 'Philips': 0, 'ResMed': 0, 'Other': 0 },
-            models: {}, parts: {}
+            models: {}, parts: {},
+            categories: {
+                [TICKET_CATEGORIES.REPAIR]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 },
+                [TICKET_CATEGORIES.MAINTENANCE]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 },
+                [TICKET_CATEGORIES.INSTALLATION]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 },
+                [TICKET_CATEGORIES.REFURBISHMENT]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 },
+                '其他': { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 }
+            }
         };
 
         const getBrand = (modelStr) => {
@@ -123,6 +137,9 @@ export function useKpiData() {
 
         cases.forEach(c => {
             const t = c.type || "";
+            const mt = mapType(t);
+            const cat = getCategory(mt);
+
             if (!engStats[c.engineer]) {
                 engStats[c.engineer] = { id: c.engineer, cases: 0, points: 0, tatSum: 0, recallNum: 0, recallDenom: 0 };
             }
@@ -133,7 +150,7 @@ export function useKpiData() {
             total.points += c.points;
             total.tatSum += c.tat;
 
-            if ((t).includes("檢測") || (t).includes("維修") || (t).includes("外修")) {
+            if (cat === TICKET_CATEGORIES.REPAIR) {
                 engStats[c.engineer].recallDenom++;
                 total.recallDenom++;
                 if (c.isRecall) { engStats[c.engineer].recallNum++; total.recallNum++; }
@@ -143,6 +160,14 @@ export function useKpiData() {
             strat.extCost += c.extCost || 0;
             const laborCost = (c.points || 0) * 1179;
             strat.laborCost += laborCost;
+
+            // Categories aggregation
+            if (strat.categories[cat]) {
+                strat.categories[cat].cases++;
+                strat.categories[cat].points += c.points || 0;
+                strat.categories[cat].revenue += c.revenue || 0;
+                strat.categories[cat].extCost += c.extCost || 0;
+            }
 
             if (c.warranty) {
                 strat.warrantyCount++;
@@ -178,6 +203,9 @@ export function useKpiData() {
             // 外修案件的 extCost 已包含廠商所有費用（含零件），不再重複計入 partsCost
             if (!isExtRepair) {
                 strat.partsCost += casePartsCost;
+                if (strat.categories[cat]) {
+                    strat.categories[cat].partsCost += casePartsCost;
+                }
             }
         });
 
@@ -331,10 +359,11 @@ export function useKpiData() {
             return cLabel === label;
         });
         setDisplayCases(subCases);
-    }, [filteredCases, granularity]);
+    }, [filteredCases, granularity, selectedCategory]);
 
     const clearDrillDown = useCallback(() => {
         setDrillDownLabel(null);
+        setSelectedCategory(null);
         setDisplayCases(filteredCases);
     }, [filteredCases]);
 
@@ -516,6 +545,7 @@ export function useKpiData() {
         points, setPoints, targetPoints, setTargetPoints,
         encoding, setEncoding, status, isLoaded, stats, historicalStats,
         drillDownLabel, granularity, setGranularity,
+        selectedCategory, setSelectedCategory,
         monthlyTrends, dataWarnings, anomalies,
         loadFile, recalculate, applyDrillDown, clearDrillDown,
         // Google Sheets integration

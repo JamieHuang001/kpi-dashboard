@@ -1,7 +1,7 @@
 export default function TopFilterBar({
     dateRange, onDateChange, targetPoints, onTargetChange,
     encoding, onEncodingChange, onFileUpload, status,
-    points, onPointsChange, drillDownLabel, onClearDrillDown,
+    points, onPointsChange, drillDownLabel, selectedCategory, onClearDrillDown,
     onToggleSidebar, onGoogleSheetLoad, onAssetLoad, isGoogleLoading, assetStatus
 }) {
     const handleFile = (e) => {
@@ -122,11 +122,14 @@ export default function TopFilterBar({
                 </div>
 
                 {/* Drill Down Notice */}
-                {drillDownLabel && (
+                {(drillDownLabel || selectedCategory) && (
                     <button onClick={onClearDrillDown} className="btn btn-sm" style={{
                         background: '#ecfdf5', color: '#065f46', border: '1px solid #10b981', fontWeight: 700
                     }}>
-                        🔄 篩選中: {drillDownLabel} (點此清除)
+                        🔄 篩選中: {[
+                            selectedCategory ? `板塊 [${selectedCategory}]` : null,
+                            drillDownLabel ? `時間 [${drillDownLabel}]` : null
+                        ].filter(Boolean).join(' + ')} (點此清除)
                     </button>
                 )}
 
