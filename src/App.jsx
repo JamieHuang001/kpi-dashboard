@@ -182,6 +182,14 @@ export default function App() {
     setModal({ open: true, title: '🚨 SLA 逾期案件明細', cases, analysis: null, isSla: true });
   }, [displayCases]);
 
+  const openCustomerModal = useCallback((clientName, suggestion) => {
+    const cases = displayCases.filter(c => c.client === clientName).sort((a, b) => (b.date || 0) - (a.date || 0));
+    const analysis = `<div style="padding:12px; border-radius:8px; background:rgba(251, 146, 60, 0.06); border:1px dashed rgba(251, 146, 60, 0.3); color:#9a3412; font-size:0.9rem;">
+      <strong>💡 客戶專屬建議：</strong>${suggestion}
+    </div>`;
+    setModal({ open: true, title: `🏆 重點客戶: ${clientName} - 叫修明細`, cases, analysis, isSla: false });
+  }, [displayCases]);
+
   const openDeepAnalysis = useCallback((chartType, label) => {
     const subCases = displayCases.filter(c => {
       const t = mapType(c.type);
@@ -399,7 +407,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 24 }}>
               <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #0284c7, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2rem', fontWeight: 800 }}>YD</div>
               <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>永定生物科技 技術部 KPI 儀表板</h1>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.3 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.3.1 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
 
               {/* Google Sheets 一鍵下載 */}
               <button onClick={loadFromGoogleSheets} disabled={isGoogleLoading} style={{
@@ -730,8 +738,11 @@ export default function App() {
 
               {/* Customers */}
               <div className="card" style={{ marginBottom: 24 }} id="customers">
-                <div className="section-header"><h3 className="section-title">🏆 重點客戶叫修分析 (Top 5)</h3></div>
-                <TopCustomers cases={displayCases} />
+                <div className="section-header" style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                  <h3 className="section-title" style={{ margin: 0 }}>🏆 重點客戶叫修分析 (Top 5)</h3>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>(點擊個別客戶卡片可檢視詳細叫修紀錄與建議)</div>
+                </div>
+                <TopCustomers cases={displayCases} onCustomerClick={openCustomerModal} />
               </div>
 
               {/* Analysis Report */}

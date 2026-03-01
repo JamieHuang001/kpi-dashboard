@@ -1,7 +1,7 @@
 import { useMemo, memo } from 'react';
 import { mapType } from '../../utils/calculations';
 
-const TopCustomers = memo(function TopCustomers({ cases }) {
+const TopCustomers = memo(function TopCustomers({ cases, onCustomerClick }) {
     const sortedCust = useMemo(() => {
         const custMap = {};
         cases.forEach(c => {
@@ -45,7 +45,7 @@ const TopCustomers = memo(function TopCustomers({ cases }) {
                 else if (topFaultStr.includes("無法開機")) suggestion = "建議檢查電源線或插座環境。";
 
                 return (
-                    <div key={cust.name} className="customer-card">
+                    <div key={cust.name} className="customer-card" style={{ cursor: 'pointer' }} onClick={() => onCustomerClick?.(cust.name, suggestion)}>
                         <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-secondary)', marginBottom: 4 }}>
                             Rank {index + 1}
                         </div>
