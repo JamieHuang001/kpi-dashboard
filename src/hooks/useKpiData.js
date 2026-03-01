@@ -130,8 +130,15 @@ export function useKpiData() {
 
         const getBrand = (modelStr) => {
             const m = (modelStr || '').toLowerCase();
-            if (m.includes('airsense') || m.includes('lumis') || m.includes('resmed') || m.includes('s9') || m.includes('s10') || m.includes('astral') || m.includes('stellar')) return 'ResMed';
-            if (m.includes('dreamstation') || m.includes('trilogy') || m.includes('bipap') || m.includes('philips') || m.includes('v60') || m.includes('v30') || m.includes('coughassist') || m.includes('everflo')) return 'Philips';
+            // ResMed Devices
+            if (m.includes('airsense') || m.includes('aircurve') || m.includes('lumis') || m.includes('resmed') ||
+                m.includes('s9') || m.includes('s10') || m.includes('astral') || m.includes('stellar')) return 'ResMed';
+
+            // Philips Devices (CPAP, Oxygen, Sleep testing, etc.)
+            if (m.includes('dreamstation') || m.includes('trilogy') || m.includes('bipap') || m.includes('philips') ||
+                m.includes('v60') || m.includes('v30') || m.includes('coughassist') || m.includes('everflo') ||
+                m.includes('alice') || m.includes('ldxn') || m.includes('sleepware')) return 'Philips';
+
             return 'Other';
         };
 
