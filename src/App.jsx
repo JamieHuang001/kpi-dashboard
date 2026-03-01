@@ -190,6 +190,15 @@ export default function App() {
     setModal({ open: true, title: `🏆 重點客戶: ${clientName} - 叫修明細`, cases, analysis, isSla: false });
   }, [displayCases]);
 
+  const openWarRepairModal = useCallback(() => {
+    const cases = displayCases.filter(c => {
+      if (!c.warranty) return false;
+      const t = mapType(c.type);
+      return t === '一般維修' || t === '困難維修' || t === '外修判定';
+    }).sort((a, b) => (b.date || 0) - (a.date || 0));
+    setModal({ open: true, title: '🛡️ 真實保固維修案件明細', cases, analysis: null, isSla: false });
+  }, [displayCases]);
+
   const openDeepAnalysis = useCallback((chartType, label) => {
     const subCases = displayCases.filter(c => {
       const t = mapType(c.type);
@@ -484,7 +493,11 @@ export default function App() {
                         {stats.strat.warrantyCount > 0 && (
                           <div style={{ borderLeft: '2px solid rgba(14, 165, 233, 0.3)', paddingLeft: 8 }}>
                             <div style={{ color: 'var(--color-text)', fontWeight: 600, marginBottom: 2 }}>
-                              真實維修件數：<span style={{ color: '#0ea5e9' }}>{stats.strat.warRepairTotal}</span>
+                              真實維修件數：<span
+                                style={{ color: '#0ea5e9', cursor: 'pointer', textDecoration: 'underline' }}
+                                onClick={openWarRepairModal}
+                                title="點擊查看明細"
+                              >{stats.strat.warRepairTotal}</span>
                               <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginLeft: 4 }}>({((stats.strat.warRepairTotal / stats.strat.warrantyCount) * 100).toFixed(1)}%)</span>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
