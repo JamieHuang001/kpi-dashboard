@@ -16,7 +16,7 @@ const DEFAULT_SOP_ITEMS = [
 ];
 
 const EQUIPMENT_TYPES = [
-    { type: 'CPAP/BiPAP 呼吸器', icon: '🫁', keywords: ['Trilogy', 'CPAP', 'BiPAP', '呼吸'] },
+    { type: 'CPAP/BiPAP 呼吸器', icon: '🫁', keywords: ['Trilogy', 'CPAP', 'BiPAP', '呼吸', 'Astral', 'Lumis'] },
     { type: '氧氣製造機', icon: '💨', keywords: ['氧氣', 'EverFlo', 'AirSep', '製氧'] },
     { type: '加熱潮濕器', icon: '💧', keywords: ['潮濕', '加熱', 'VADI', '溫大師', 'VH-1500', 'EH-01'] },
     { type: '其他設備', icon: '🔧', keywords: [] },
@@ -104,19 +104,50 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
         if (!assetData || assetData.length === 0) return null;
 
         const categorized = {};
-        EQUIPMENT_TYPES.forEach(et => { categorized[et.type] = { ...et, total: 0, ok: 0, repair: 0, testing: 0, abnormal: 0, items: { ok: [], repair: [], testing: [], abnormal: [] } }; });
+        EQUIPMENT_TYPES.forEach(et => { categorized[et.type] = { ...et, total: 0, ok: 0, repair: 0, testing: 0, abnormal: 0, idle: 0, items: { ok: [], repair: [], testing: [], abnormal: [], idle: [] } }; });
+
+        const dispatchableList = {
+            'CPAP/BiPAP 呼吸器': {},
+            '氧氣製造機': {},
+        };
+        let totalDispatchable = 0;
 
         assetData.forEach(a => {
+            const company = (a.company || '').trim();
+            // 只統計公司是 "泰永", "永定", "富齡", "無帳" 的資產
+            if (company && !['泰永', '永定', '富齡', '無帳'].some(c => company.includes(c))) {
+                return;
+            }
+
             const name = `${a.productName || ''} ${a.model || ''}`.toLowerCase();
+            const s = (a.status || '').trim();
+            const loc = (a.location || '').trim();
+            const pClient = (a.client || '').trim();
+
+            // 判斷是否為可調度 (閒置)
+            const isExplicitIdle = ['閒置', '可用', '備機', '在庫', '庫存', '廠內'].some(k => s.includes(k));
+            const isImplicitIdle = (['正常', 'ok', ''].includes(s.toLowerCase()) &&
+                (['倉庫', '公司', '庫存', '廠內'].some(k => loc.includes(k)) || pClient === ''));
+            const isIdle = isExplicitIdle || isImplicitIdle;
+
             let matched = false;
+            let matchedType = null;
+
             for (const et of EQUIPMENT_TYPES) {
                 if (et.keywords.length > 0 && et.keywords.some(k => name.includes(k.toLowerCase()))) {
                     categorized[et.type].total++;
-                    const s = (a.status || '').trim();
+                    matchedType = et.type;
+
                     if (['待維修', '維修中'].includes(s)) { categorized[et.type].repair++; categorized[et.type].items.repair.push(a); }
                     else if (['待測', '測試中'].includes(s)) { categorized[et.type].testing++; categorized[et.type].items.testing.push(a); }
                     else if (['找不到', '報廢', '故障'].includes(s)) { categorized[et.type].abnormal++; categorized[et.type].items.abnormal.push(a); }
                     else { categorized[et.type].ok++; categorized[et.type].items.ok.push(a); }
+
+                    if (isIdle && !['待維修', '維修中', '待測', '測試中', '找不到', '報廢', '故障'].some(k => s.includes(k))) {
+                        categorized[et.type].idle++;
+                        categorized[et.type].items.idle.push(a);
+                    }
+
                     matched = true;
                     break;
                 }
@@ -125,6 +156,26 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                 categorized['其他設備'].total++;
                 categorized['其他設備'].ok++;
                 categorized['其他設備'].items.ok.push(a);
+                if (isIdle && !['待維修', '維修中', '待測', '測試中', '找不到', '報廢', '故障'].some(k => s.includes(k))) {
+                    categorized['其他設備'].idle++;
+                    categorized['其他設備'].items.idle.push(a);
+                }
+            }
+
+            // Extract dispatchable models for 呼吸器 and 氧氣機
+            if (matchedType && dispatchableList[matchedType] && isIdle && !['待維修', '維修中', '待測', '測試中', '找不到', '報廢', '故障'].some(k => s.includes(k))) {
+                const pName = (a.productName || '').trim();
+                const mName = (a.model || '').trim();
+                let displayName = '未區分設備';
+                if (pName && mName) displayName = `${pName} (${mName})`;
+                else if (pName) displayName = pName;
+                else if (mName) displayName = mName;
+
+                if (!dispatchableList[matchedType][displayName]) {
+                    dispatchableList[matchedType][displayName] = [];
+                }
+                dispatchableList[matchedType][displayName].push(a);
+                totalDispatchable++;
             }
         });
 
@@ -132,7 +183,7 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
         const totalOk = Object.values(categorized).reduce((s, c) => s + c.ok, 0);
         const readinessRate = totalEquip > 0 ? (totalOk / totalEquip) * 100 : 0;
 
-        return { categorized, totalEquip, totalOk, readinessRate };
+        return { categorized, totalEquip, totalOk, readinessRate, dispatchableList, totalDispatchable };
     }, [assetData]);
 
     if (!stats) {
@@ -144,16 +195,23 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
         );
     }
 
-    const openModal = (statusKey, label, color) => {
-        const items = [];
-        Object.values(stats.categorized).forEach(cat => {
-            cat.items[statusKey].forEach(a => items.push({ ...a, equipType: cat.type }));
-        });
+    const openModal = (statusKey, label, color, explicitItems = null) => {
+        let items = [];
+        if (explicitItems) {
+            items = explicitItems.map(a => ({ ...a, equipType: a.equipType || a.type || '設備' }));
+        } else {
+            Object.values(stats.categorized).forEach(cat => {
+                if (cat.items[statusKey]) {
+                    cat.items[statusKey].forEach(a => items.push({ ...a, equipType: cat.type }));
+                }
+            });
+        }
         setModalData({ label, color, items });
     };
 
     const statusSummary = [
         { label: '正常運作', key: 'ok', value: stats.totalOk, color: '#10b981', icon: '✅' },
+        { label: '可調度(閒置)', key: 'idle', value: Object.values(stats.categorized).reduce((s, c) => s + c.idle, 0), color: '#8b5cf6', icon: '📦' },
         { label: '維修中', key: 'repair', value: Object.values(stats.categorized).reduce((s, c) => s + c.repair, 0), color: '#f59e0b', icon: '🔧' },
         { label: '待測/測試中', key: 'testing', value: Object.values(stats.categorized).reduce((s, c) => s + c.testing, 0), color: '#3b82f6', icon: '🧪' },
         { label: '異常/報廢', key: 'abnormal', value: Object.values(stats.categorized).reduce((s, c) => s + c.abnormal, 0), color: '#ef4444', icon: '⚠️' },
@@ -179,13 +237,13 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                 {/* Details */}
                 <div>
                     {/* Status summary - clickable */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, marginBottom: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 8, marginBottom: 16 }}>
                         {statusSummary.map(s => (
                             <div key={s.label} className="mini-stat"
                                 onClick={() => s.value > 0 && openModal(s.key, s.label, s.color)}
-                                style={{ cursor: s.value > 0 ? 'pointer' : 'default' }}>
+                                style={{ cursor: s.value > 0 ? 'pointer' : 'default', padding: '8px' }}>
                                 <div className="mini-stat-value" style={{ color: s.color, fontSize: '1.2rem' }}>{s.value}</div>
-                                <div className="mini-stat-label">{s.icon} {s.label}</div>
+                                <div className="mini-stat-label" style={{ fontSize: '0.75rem' }}>{s.icon} {s.label}</div>
                                 {s.value > 0 && <div style={{ fontSize: '0.65rem', color: 'var(--color-primary)', marginTop: 2, fontWeight: 600 }}>點擊查看 →</div>}
                             </div>
                         ))}
@@ -216,6 +274,69 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                     </div>
                 </div>
             </div>
+
+            {/* 業務端可調度設備明細 */}
+            {stats.totalDispatchable > 0 && (
+                <div style={{
+                    marginTop: 20, padding: 16, background: 'var(--color-surface-alt)',
+                    borderRadius: 12, border: '1px solid var(--color-border)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                        <div style={{
+                            background: '#8b5cf6', color: 'white', padding: '6px 10px',
+                            borderRadius: 8, fontSize: '0.9rem', fontWeight: 700
+                        }}>
+                            📦 業務端可調度設備
+                        </div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>主要是呼吸器與氧氣機之閒置/在庫/可用數量</span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+                        {Object.entries(stats.dispatchableList).map(([type, models]) => {
+                            const modelEntries = Object.entries(models).sort((a, b) => b[1].length - a[1].length);
+                            if (modelEntries.length === 0) return null;
+
+                            const totalForType = modelEntries.reduce((acc, curr) => acc + curr[1].length, 0);
+
+                            return (
+                                <div key={type} style={{ background: 'var(--color-surface)', padding: 12, borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                                    <div style={{
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        marginBottom: 10, paddingBottom: 8, borderBottom: '1px dashed var(--color-border)'
+                                    }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text)' }}>{type}</span>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#8b5cf6' }}>共 {totalForType} 台</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
+                                        {modelEntries.map(([model, items]) => (
+                                            <div key={model} style={{
+                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                fontSize: '0.8rem', background: 'var(--color-surface-alt)', padding: '6px 10px', borderRadius: 6
+                                            }}>
+                                                <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{model}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span style={{ fontWeight: 800, color: '#8b5cf6', background: '#8b5cf615', padding: '2px 8px', borderRadius: 12 }}>
+                                                        {items.length} 台
+                                                    </span>
+                                                    <button
+                                                        onClick={() => openModal('idle', `${model} 閒置名單`, '#8b5cf6', items)}
+                                                        style={{
+                                                            background: 'none', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-primary)',
+                                                            fontSize: '0.72rem', cursor: 'pointer', padding: '2px 6px'
+                                                        }}
+                                                    >
+                                                        查看
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Equipment Detail Modal */}
             <DetailModal isOpen={!!modalData} onClose={() => setModalData(null)}

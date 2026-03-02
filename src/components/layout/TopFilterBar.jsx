@@ -136,6 +136,7 @@ export default function TopFilterBar({
                 {/* Status */}
                 {status && (
                     <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--color-primary-light)', opacity: 0.8 }}>v5.4.0</div>
                         {status}
                     </div>
                 )}
