@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { generateGeminiResponse } from '../../utils/geminiApi';
 
 // ===== 常量 =====
 const STORAGE_KEY_SOP = 'yd-dashboard-sop-checklist';
@@ -390,7 +391,15 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
 });
 
 // ===== ② 標準作業程序與常規任務區 =====
-const SOPChecklist = memo(function SOPChecklist() {
+const SOPChecklist = memo(function SOPChecklist({ filteredCases = [] }) {
+    const [sopItems, setSopItems] = useState(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_SOP + '_list');
+            if (saved) return JSON.parse(saved);
+        } catch (e) { /* ignore */ }
+        return DEFAULT_SOP_ITEMS;
+    });
+
     const [checkedItems, setCheckedItems] = useState(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY_SOP);
@@ -402,6 +411,12 @@ const SOPChecklist = memo(function SOPChecklist() {
         return {};
     });
 
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY_SOP + '_list', JSON.stringify(sopItems));
+    }, [sopItems]);
+
     useEffect(() => {
         localStorage.setItem(STORAGE_KEY_SOP, JSON.stringify({ weekId: getWeekId(), items: checkedItems }));
     }, [checkedItems]);
@@ -410,21 +425,74 @@ const SOPChecklist = memo(function SOPChecklist() {
         setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
     }, []);
 
-    const completedCount = DEFAULT_SOP_ITEMS.filter(item => checkedItems[item.id]).length;
-    const progressPct = (completedCount / DEFAULT_SOP_ITEMS.length) * 100;
+    const handleGenerateSOP = async () => {
+        setIsGenerating(true);
+        try {
+            const total = filteredCases.length;
+            const pending = filteredCases.filter(c => c.status !== '完修').length;
+            const delayCases = filteredCases.filter(c => c.tat > 3).slice(0, 5).map(c => `[TAT:${c.tat}天/狀態:${c.status}/描述:${c.fault}]`).join('; ');
 
-    const categories = [...new Set(DEFAULT_SOP_ITEMS.map(i => i.category))];
+            const prompt = `你是一個專業的醫療設備維修中心營運主管。目前系統案件概況：總共 ${total} 件，其中 ${pending} 件未結案。其中一些遲延案件摘要: ${delayCases}。
+請根據上述真實數據，幫我列出本週最關鍵的 5 個維修中心「標準作業程序 (SOP) 檢核項目」。
+必須以嚴格的 JSON 陣列格式回傳，陣列每個元素都是一個物件，必須包含:
+- "label": 檢核項目的說明 (大約一到兩句話，寫出明確數字或目標)
+- "category": 分類 (例如：'品質管理', '作業管理', '庫存管理', '客戶管理', '營運管理')
+
+僅回傳可以被 JSON.parse() 解析的陣列本身，不要有除了陣列以外的其他字元:
+[
+  { "label": "...", "category": "..." }
+]`;
+            const result = await generateGeminiResponse(prompt, true);
+            if (Array.isArray(result) && result.length > 0) {
+                const newSops = result.map((item, index) => ({
+                    id: `sop-ai-${Date.now()}-${index}`,
+                    label: item.label || 'SOP 項目',
+                    category: item.category || '一般管理'
+                }));
+                setSopItems(newSops.filter(s => s.label.indexOf(' 0 ') === -1));
+                setCheckedItems({});
+            }
+        } catch (err) {
+            console.error(err);
+            alert("SOP 生成失敗: " + err.message);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const completedCount = sopItems.filter(item => checkedItems[item.id]).length;
+    const progressPct = sopItems.length > 0 ? (completedCount / sopItems.length) * 100 : 0;
+
+    const categories = [...new Set(sopItems.map(i => i.category))];
 
     return (
         <div>
             {/* Progress header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-                    本週完成進度
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                        本週完成進度
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
+                        {completedCount}/{sopItems.length} ({progressPct.toFixed(0)}%)
+                    </div>
                 </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: progressPct === 100 ? '#10b981' : 'var(--color-primary)' }}>
-                    {completedCount}/{DEFAULT_SOP_ITEMS.length} ({progressPct.toFixed(0)}%)
-                </div>
+                <button
+                    onClick={handleGenerateSOP}
+                    disabled={isGenerating}
+                    style={{
+                        padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(139, 92, 246, 0.4)',
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1))',
+                        color: '#8b5cf6', fontSize: '0.78rem', fontWeight: 700, cursor: isGenerating ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 6, opacity: isGenerating ? 0.7 : 1
+                    }}
+                >
+                    {isGenerating ? (
+                        <><span style={{ animation: 'spin 1s linear infinite' }}>⏳</span> 產生中...</>
+                    ) : (
+                        <>✨ 智慧產生清單</>
+                    )}
+                </button>
             </div>
             <ProgressBar value={progressPct} color={
                 progressPct === 100 ? 'linear-gradient(90deg, #10b981, #34d399)' : undefined
@@ -438,7 +506,7 @@ const SOPChecklist = memo(function SOPChecklist() {
                             fontSize: '0.72rem', fontWeight: 700, color: 'var(--color-text-secondary)',
                             textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4, paddingLeft: 4,
                         }}>{cat}</div>
-                        {DEFAULT_SOP_ITEMS.filter(i => i.category === cat).map(item => (
+                        {sopItems.filter(i => i.category === cat).map(item => (
                             <div
                                 key={item.id}
                                 className={`checklist-item ${checkedItems[item.id] ? 'completed' : ''}`}
@@ -462,7 +530,7 @@ const SOPChecklist = memo(function SOPChecklist() {
 const RiskManagement = memo(function RiskManagement({ filteredCases = [] }) {
     const [risks, setRisks] = useState(() => {
         try {
-            const saved = localStorage.getItem(STORAGE_KEY_RISKS);
+            const saved = localStorage.getItem(STORAGE_KEY_RISKS + '_list');
             if (saved) return JSON.parse(saved);
         } catch (e) { /* ignore */ }
         return [
@@ -475,9 +543,10 @@ const RiskManagement = memo(function RiskManagement({ filteredCases = [] }) {
     const [showForm, setShowForm] = useState(false);
     const [newRisk, setNewRisk] = useState({ level: 'medium', title: '', desc: '', owner: '' });
     const [detailRisk, setDetailRisk] = useState(null);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY_RISKS, JSON.stringify(risks));
+        localStorage.setItem(STORAGE_KEY_RISKS + '_list', JSON.stringify(risks));
     }, [risks]);
 
     const addRisk = useCallback(() => {
@@ -492,6 +561,49 @@ const RiskManagement = memo(function RiskManagement({ filteredCases = [] }) {
         setShowForm(false);
     }, [newRisk]);
 
+    const handleGenerateRisks = async () => {
+        setIsGenerating(true);
+        try {
+            // 提供部分精確資料給 AI (不給太多以免超過 Token 或上下文負載)
+            const sampleData = filteredCases.filter(c => c.status !== '完修' || c.tat > 3).slice(0, 50).map(c => `[SN:${c.sn || '未知'},型號:${c.model || '未知'},狀態:${c.status},TAT:${c.tat}天]`).join(' | ');
+
+            const prompt = `你是一個醫療設備維修中心的 AI 風險分析師。以下是目前系統中未完修或處理較久的案件快照 (最多50筆)：
+${sampleData}
+
+請分析這些案件，找出潛在的營運風險 (例如：TAT處理天數過長、特定型號集中送修、或是任何你認為值得注意的異常)。
+請產出 3 到 5 個風險項目，並以嚴格的 JSON 陣列格式回傳。為了讓系統能關聯案件，請務必在 "desc" 或 "title" 內文裡，明確提及最相關案件的「序號 (SN)」以逗號隔開 (如果有) 或原本對應的「型號」。
+
+回傳格式必須是可以被 JSON.parse 解析的陣列，不要有多餘的字元：
+[
+  { 
+    "level": "high", 
+    "title": "風險標題摘要",
+    "desc": "風險詳細說明，此處請務必列出具體的案件序號 (如: TV1234 等) 或相關型號名稱，這會有助於系統自動追蹤",
+    "owner": "權責單位 (例如: 工程師, 客服, 倉管主管)"
+  }
+]`;
+            const result = await generateGeminiResponse(prompt, true);
+            if (Array.isArray(result) && result.length > 0) {
+                const newRisks = result.map((item, index) => ({
+                    id: Date.now() + index,
+                    level: item.level || 'medium',
+                    title: item.title || '未知風險',
+                    desc: item.desc || '',
+                    owner: item.owner || 'AI系統',
+                    date: new Date().toISOString().split('T')[0],
+                    resolved: false
+                }));
+                setRisks(newRisks);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("風險盤點失敗: " + err.message);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+
     const toggleResolved = useCallback((id) => {
         setRisks(prev => prev.map(r => r.id === id ? { ...r, resolved: !r.resolved } : r));
     }, []);
@@ -503,6 +615,21 @@ const RiskManagement = memo(function RiskManagement({ filteredCases = [] }) {
     // 從風險描述中搜尋相關案件
     const relatedCases = useMemo(() => {
         if (!detailRisk || !filteredCases.length) return [];
+
+        // 針對自動生成的已知風險直接給出精確配對
+        if (detailRisk.title.includes('嚴重逾期')) {
+            return filteredCases.filter(c => c.tat > 5 && c.status !== '完修');
+        }
+        if (detailRisk.title.includes('Trilogy 設備集中返修')) {
+            return filteredCases.filter(c => c.model && c.model.includes('Trilogy'));
+        }
+        if (detailRisk.title.includes('保養通知批次排程')) {
+            return filteredCases.filter(c => {
+                const model = (c.model || '').toLowerCase();
+                return model.includes('cpap') || model.includes('everflo');
+            }).slice(0, 15);
+        }
+
         const keywords = [];
         // Extract keywords from title and desc
         const text = `${detailRisk.title} ${detailRisk.desc}`.toLowerCase();
@@ -547,17 +674,31 @@ const RiskManagement = memo(function RiskManagement({ filteredCases = [] }) {
                         );
                     })}
                 </div>
-                <button
-                    onClick={() => setShowForm(!showForm)}
-                    style={{
-                        padding: '6px 14px', borderRadius: 8, border: 'none',
-                        background: 'var(--color-primary)', color: 'white',
-                        fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
-                        transition: 'all 0.2s',
-                    }}
-                >
-                    {showForm ? '✕ 取消' : '＋ 新增通報'}
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                        onClick={handleGenerateRisks}
+                        disabled={isGenerating}
+                        style={{
+                            padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(239, 68, 68, 0.4)',
+                            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(245, 158, 11, 0.1))',
+                            color: '#ef4444', fontSize: '0.78rem', fontWeight: 700, cursor: isGenerating ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 6, opacity: isGenerating ? 0.7 : 1
+                        }}
+                    >
+                        {isGenerating ? <><span style={{ animation: 'spin 1s linear infinite' }}>⏳</span> 分析中...</> : <>✨ 智能盤點</>}
+                    </button>
+                    <button
+                        onClick={() => setShowForm(!showForm)}
+                        style={{
+                            padding: '6px 14px', borderRadius: 8, border: 'none',
+                            background: 'var(--color-primary)', color: 'white',
+                            fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                            transition: 'all 0.2s',
+                        }}
+                    >
+                        {showForm ? '✕ 取消' : '＋ 新評估'}
+                    </button>
+                </div>
             </div>
 
             {/* Add form */}
@@ -770,7 +911,7 @@ const OperationsDashboard = memo(function OperationsDashboard({ assetData = [], 
                         </span>
                     </div>
                     <div className="section-card-body">
-                        <SOPChecklist />
+                        <SOPChecklist filteredCases={filteredCases} />
                     </div>
                 </div>
 

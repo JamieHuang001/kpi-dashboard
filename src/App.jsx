@@ -1,3 +1,5 @@
+import GeminiChat from './components/cards/GeminiChat';
+
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import TopFilterBar from './components/layout/TopFilterBar';
@@ -453,6 +455,8 @@ export default function App() {
                 </div>
               )}
             </div>
+          ) : activeSection === 'ai-chat' ? (
+            <GeminiChat stats={stats} historicalStats={historicalStats} monthlyTrends={monthlyTrends} />
           ) : (
             <>
               <div style={{ textAlign: 'center', marginBottom: 20 }}>

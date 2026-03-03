@@ -1,6 +1,7 @@
 import { useTheme } from '../../hooks/useTheme';
 
 const navItems = [
+    { icon: '🤖', label: 'AI 對話助理', id: 'ai-chat' },
     { icon: '📊', label: '儀表板總覽', id: 'dashboard' },
     { icon: '🏥', label: '設備監控', id: 'equipment' },
     { icon: '✅', label: 'SOP 檢核', id: 'sop' },
