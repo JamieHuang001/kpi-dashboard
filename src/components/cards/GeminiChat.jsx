@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo } from 'react';
 
-const API_KEY = 'AIzaSyCwd5YzDDycQdFK78rguzuFSEV9ikSFmww';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('GEMINI_API_KEY') || '';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
 
 const GeminiChat = memo(function GeminiChat({ stats, historicalStats, monthlyTrends }) {
