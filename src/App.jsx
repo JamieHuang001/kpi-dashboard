@@ -16,6 +16,7 @@ import AdvancedInsights from './components/cards/AdvancedInsights';
 import OperationsDashboard from './components/cards/OperationsDashboard';
 import CaseMindMap from './components/cards/CaseMindMap';
 import ComparativeAnalytics from './components/cards/ComparativeAnalytics';
+import MaintenanceDashboard from './components/views/MaintenanceDashboard';
 import { useKpiData } from './hooks/useKpiData';
 import { mapType, getSlaTarget, TICKET_CATEGORIES } from './utils/calculations';
 
@@ -455,6 +456,8 @@ export default function App() {
                 </div>
               )}
             </div>
+          ) : activeSection === 'maintenance' ? (
+            <MaintenanceDashboard />
           ) : activeSection === 'ai-chat' ? (
             <GeminiChat stats={stats} historicalStats={historicalStats} monthlyTrends={monthlyTrends} />
           ) : (

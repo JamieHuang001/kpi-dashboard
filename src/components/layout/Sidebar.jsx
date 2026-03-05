@@ -11,6 +11,7 @@ const navItems = [
     { icon: '🔧', label: '零件消耗', id: 'parts' },
     { icon: '🏆', label: '重點客戶', id: 'customers' },
     { icon: '📦', label: '財產總表', id: 'assets' },
+    { icon: '🗓️', label: '保養管理', id: 'maintenance' },
 ];
 
 export default function Sidebar({ activeSection, onNavigate, isOpen, onClose }) {
