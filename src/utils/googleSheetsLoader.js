@@ -249,17 +249,22 @@ export async function fetchMaintenanceMetadata(apiKey) {
 
     const sheets = data.sheets.map(s => s.properties);
 
-    // Filter and sort for home maintenance (e.g., "永定居家-115年03月份")
-    const homeSheets = sheets.filter(s => s.title.includes('永定居家') && s.title.includes('月')).sort((a, b) => {
-        // Extract year and month, e.g., "永定居家-115年03月份" -> 115, 3
-        const matchA = a.title.match(/(\d+)年(\d+)月/);
-        const matchB = b.title.match(/(\d+)年(\d+)月/);
-        if (matchA && matchB) {
-            const dateA = parseInt(matchA[1]) * 100 + parseInt(matchA[2]);
-            const dateB = parseInt(matchB[1]) * 100 + parseInt(matchB[2]);
-            return dateB - dateA; // Descending (newest first)
-        }
-        return b.title.localeCompare(a.title); // Fallback
+    const parseDateFromTitle = (title) => {
+        let year = 114; // 民國 114 年為預設基準 (處理舊資料)
+        let month = 0;
+
+        const yearMatch = title.match(/(\d+)年/);
+        if (yearMatch) year = parseInt(yearMatch[1], 10);
+
+        const monthMatch = title.match(/(\d+)月/);
+        if (monthMatch) month = parseInt(monthMatch[1], 10);
+
+        return year * 100 + month;
+    };
+
+    // Filter and sort for home maintenance
+    const homeSheets = sheets.filter(s => s.title.includes('居家') && s.title.includes('月')).sort((a, b) => {
+        return parseDateFromTitle(b.title) - parseDateFromTitle(a.title);
     });
 
     // Filter and sort for hospital maintenance (e.g., "115年醫院保養總表")
