@@ -141,7 +141,10 @@ export default function MaintenanceDashboard() {
             if (!hospMap[d.hospital]) {
                 hospMap[d.hospital] = { total: 0, completed: 0, link: d.hospitalLink || '', uniqueRows: new Set() };
             }
-            if (d.rowId !== undefined) hospMap[d.hospital].uniqueRows.add(`${d.rowId}-${d.amount}`);
+            // Exclude NA records representing rescheduled or cancelled maintenance
+            if (d.status !== '預排變更' && d.rowId !== undefined) {
+                hospMap[d.hospital].uniqueRows.add(`${d.rowId}-${d.amount}`);
+            }
             hospMap[d.hospital].total += (d.amount || 1);
             if (d.status === '已保養') hospMap[d.hospital].completed += (d.amount || 1);
         });
