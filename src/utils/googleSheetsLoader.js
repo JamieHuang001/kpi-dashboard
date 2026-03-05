@@ -443,7 +443,7 @@ export async function fetchHospitalMaintenanceData(spreadsheetId, sheetId, title
         hospital: headers.findIndex(h => h.includes('醫院') || h.includes('院所')),
         status: headers.findIndex(h => h.includes('狀態') || h.includes('進度')),
         date: headers.findIndex(h => h.includes('日期') || h.includes('保養日')),
-        machine: headers.findIndex(h => h.includes('機型') || h.includes('設備')),
+        machine: headers.findIndex(h => h.includes('機型') || h.includes('設備') || h.includes('機種')),
         amount: headers.findIndex(h => h.includes('台數') || h.includes('數量')),
         firstMonthCol: headers.findIndex(h => h.includes('1月') || h === '1') // Try to find where months start
     };
