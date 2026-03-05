@@ -10,6 +10,7 @@ export default function MaintenanceDashboard() {
     const [selectedHomeSheet, setSelectedHomeSheet] = useState(null);
     const [selectedHospitalSheet, setSelectedHospitalSheet] = useState(null);
     const [metadata, setMetadata] = useState(null);
+    const [homeTrendData, setHomeTrendData] = useState([]);
 
     useEffect(() => {
         let mounted = true;
@@ -49,6 +50,28 @@ export default function MaintenanceDashboard() {
                     const hsData = await fetchHospitalMaintenanceData(metadata.spreadsheetId, selectedHospitalSheet.sheetId, selectedHospitalSheet.title, apiKey);
                     if (mounted) setHospitalData(hsData);
                 }
+
+                // Fetch Home Trend Data (Last up to 6 sheets)
+                if (metadata.homeSheets.length > 0) {
+                    const sheetsToFetch = metadata.homeSheets.slice(0, 6); // Assuming they are ordered by most recent first
+                    const trendReqs = sheetsToFetch.map(s =>
+                        fetchHomeMaintenanceData(metadata.spreadsheetId, s.sheetId, s.title, apiKey)
+                            .then(data => {
+                                const validData = data.filter(d => !d.skip);
+                                const completed = validData.filter(d => d.status === '已保養').length;
+                                const total = validData.length;
+                                return {
+                                    monthName: s.title.replace('居家-', '').replace('月份', ''),
+                                    completed,
+                                    total
+                                };
+                            })
+                            .catch(() => ({ monthName: s.title, completed: 0, total: 0 }))
+                    );
+                    const trendResults = await Promise.all(trendReqs);
+                    if (mounted) setHomeTrendData(trendResults.reverse()); // Oldest to newest
+                }
+
                 if (mounted) setLoading(false);
             } catch (err) {
                 console.error(err);
@@ -116,8 +139,9 @@ export default function MaintenanceDashboard() {
         hospitalData.forEach(d => {
             if (d.skip) return;
             if (!hospMap[d.hospital]) {
-                hospMap[d.hospital] = { total: 0, completed: 0, link: d.hospitalLink || '' };
+                hospMap[d.hospital] = { total: 0, completed: 0, link: d.hospitalLink || '', machines: new Set() };
             }
+            if (d.machine) hospMap[d.hospital].machines.add(d.machine); // Store unique machine names to count physical machines
             hospMap[d.hospital].total += (d.amount || 1);
             if (d.status === '已保養') hospMap[d.hospital].completed += (d.amount || 1);
         });
@@ -129,12 +153,26 @@ export default function MaintenanceDashboard() {
             return {
                 name,
                 link: stats.link,
+                machineCount: stats.machines.size, // Number of unique machines
                 total: stats.total,
                 completed: stats.completed,
                 rate: Math.round(rate * 100),
                 light: statusLight
             };
         }).sort((a, b) => a.rate - b.rate); // Show those needing attention first
+    }, [hospitalData]);
+
+    const hospitalAnnualTrend = useMemo(() => {
+        const trend = Array(12).fill(0).map((_, i) => ({ month: i + 1, total: 0, completed: 0 }));
+        hospitalData.forEach(d => {
+            if (d.skip) return;
+            const mIdx = d.month - 1;
+            if (mIdx >= 0 && mIdx < 12) {
+                trend[mIdx].total += (d.amount || 1);
+                if (d.status === '已保養') trend[mIdx].completed += (d.amount || 1);
+            }
+        });
+        return trend;
     }, [hospitalData]);
 
     if (error) {
@@ -159,6 +197,19 @@ export default function MaintenanceDashboard() {
             datalabels: { color: '#fff', font: { weight: 'bold', size: 11 } }
         },
         cutout: '70%',
+    };
+
+    const barOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: 'var(--color-text-secondary)', font: { family: 'Inter', size: 10 } } },
+            datalabels: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { grid: { display: false } }
+        }
     };
 
     return (
@@ -205,24 +256,58 @@ export default function MaintenanceDashboard() {
                             </div>
                         </div>
 
-                        <div style={{ height: '220px', position: 'relative' }}>
-                            <Doughnut
-                                data={{
-                                    labels: ['已完成', '待完成'],
-                                    datasets: [{
-                                        data: [homeStats.completed, homeStats.pending],
-                                        backgroundColor: ['#10b981', '#f59e0b'],
-                                        borderWidth: 0
-                                    }]
-                                }}
-                                options={chartOptions}
-                            />
-                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', marginLeft: '-32px' }}>
-                                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text)' }}>
-                                    {homeStats.total > 0 ? Math.round((homeStats.completed / homeStats.total) * 100) : 0}%
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                            <div style={{ height: '220px', position: 'relative' }}>
+                                <Doughnut
+                                    data={{
+                                        labels: ['已完成', '待完成'],
+                                        datasets: [{
+                                            data: [homeStats.completed, homeStats.pending],
+                                            backgroundColor: ['#10b981', '#f59e0b'],
+                                            borderWidth: 0
+                                        }]
+                                    }}
+                                    options={chartOptions}
+                                />
+                                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', marginLeft: '-32px' }}>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text)' }}>
+                                        {homeStats.total > 0 ? Math.round((homeStats.completed / homeStats.total) * 100) : 0}%
+                                    </div>
+                                    <div style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)' }}>當月達成率</div>
                                 </div>
-                                <div style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)' }}>達成率</div>
                             </div>
+
+                            {homeTrendData.length > 0 && (
+                                <div style={{ height: '220px' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: 'var(--color-text-secondary)', textAlign: 'center' }}>近半年達成率趨勢</h4>
+                                    <Bar
+                                        data={{
+                                            labels: homeTrendData.map(t => `${t.monthName}月`),
+                                            datasets: [
+                                                {
+                                                    label: '已完成',
+                                                    data: homeTrendData.map(t => t.completed),
+                                                    backgroundColor: '#10b981',
+                                                    borderRadius: 4
+                                                },
+                                                {
+                                                    label: '待保養',
+                                                    data: homeTrendData.map(t => Math.max(0, t.total - t.completed)),
+                                                    backgroundColor: '#cbd5e1',
+                                                    borderRadius: 4
+                                                }
+                                            ]
+                                        }}
+                                        options={{
+                                            ...barOptions,
+                                            scales: {
+                                                x: { stacked: true },
+                                                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+                                            }
+                                        }}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         {/* 耗材營收概況 */}
@@ -314,23 +399,55 @@ export default function MaintenanceDashboard() {
                             </div>
                         </div>
 
-                        <div style={{ height: '220px', position: 'relative' }}>
-                            <Doughnut
-                                data={{
-                                    labels: ['已完成', '待完成'],
-                                    datasets: [{
-                                        data: [hospitalStats.completed, hospitalStats.pending],
-                                        backgroundColor: ['#0ea5e9', '#f43f5e'],
-                                        borderWidth: 0
-                                    }]
-                                }}
-                                options={chartOptions}
-                            />
-                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', marginLeft: '-32px' }}>
-                                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text)' }}>
-                                    {hospitalStats.total > 0 ? Math.round((hospitalStats.completed / hospitalStats.total) * 100) : 0}%
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                            <div style={{ height: '220px', position: 'relative' }}>
+                                <Doughnut
+                                    data={{
+                                        labels: ['已完成', '待完成'],
+                                        datasets: [{
+                                            data: [hospitalStats.completed, hospitalStats.pending],
+                                            backgroundColor: ['#0ea5e9', '#f43f5e'],
+                                            borderWidth: 0
+                                        }]
+                                    }}
+                                    options={chartOptions}
+                                />
+                                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', marginLeft: '-32px' }}>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text)' }}>
+                                        {hospitalStats.total > 0 ? Math.round((hospitalStats.completed / hospitalStats.total) * 100) : 0}%
+                                    </div>
+                                    <div style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)' }}>總達成率</div>
                                 </div>
-                                <div style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)' }}>達成率</div>
+                            </div>
+
+                            <div style={{ height: '220px' }}>
+                                <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: 'var(--color-text-secondary)', textAlign: 'center' }}>年度達成率趨勢</h4>
+                                <Bar
+                                    data={{
+                                        labels: hospitalAnnualTrend.map(t => `${t.month}月`),
+                                        datasets: [
+                                            {
+                                                label: '已完成',
+                                                data: hospitalAnnualTrend.map(t => t.completed),
+                                                backgroundColor: '#0ea5e9',
+                                                borderRadius: 4
+                                            },
+                                            {
+                                                label: '待保養',
+                                                data: hospitalAnnualTrend.map(t => Math.max(0, t.total - t.completed)),
+                                                backgroundColor: '#cbd5e1',
+                                                borderRadius: 4
+                                            }
+                                        ]
+                                    }}
+                                    options={{
+                                        ...barOptions,
+                                        scales: {
+                                            x: { stacked: true },
+                                            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+                                        }
+                                    }}
+                                />
                             </div>
                         </div>
 
@@ -347,8 +464,12 @@ export default function MaintenanceDashboard() {
                                                 </div>
                                                 <div style={{ fontSize: '1.2rem' }}>{hosp.light}</div>
                                             </div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                <span>實際機器數:</span>
+                                                <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{hosp.machineCount} 台</span>
+                                            </div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>進度: {hosp.completed}/{hosp.total} 台</span>
+                                                <span>總任務進度: {hosp.completed}/{hosp.total}</span>
                                                 <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{hosp.rate}%</span>
                                             </div>
                                         </div>
