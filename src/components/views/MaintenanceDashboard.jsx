@@ -119,7 +119,17 @@ export default function MaintenanceDashboard() {
         const total = validData.reduce((sum, d) => sum + (d.amount || 1), 0);
         const pending = total - completed;
 
-        return { completed, pending, total };
+        // Total unique physical machines across everything
+        const uniqueMachinesMap = new Map();
+        validData.forEach(d => {
+            if (d.status !== '預排變更' && d.rowId !== undefined) {
+                uniqueMachinesMap.set(`${d.hospital}-${d.rowId}`, d.amount || 1);
+            }
+        });
+        let totalMachineCount = 0;
+        uniqueMachinesMap.forEach(amount => totalMachineCount += amount);
+
+        return { completed, pending, total, totalMachineCount };
     }, [hospitalData]);
 
     const engineerStatsArray = useMemo(() => {
@@ -139,11 +149,14 @@ export default function MaintenanceDashboard() {
         hospitalData.forEach(d => {
             if (d.skip) return;
             if (!hospMap[d.hospital]) {
-                hospMap[d.hospital] = { total: 0, completed: 0, link: d.hospitalLink || '', uniqueRows: new Set() };
+                hospMap[d.hospital] = { total: 0, completed: 0, link: d.hospitalLink || '', uniqueRows: new Map() };
             }
             // Exclude NA records representing rescheduled or cancelled maintenance
             if (d.status !== '預排變更' && d.rowId !== undefined) {
-                hospMap[d.hospital].uniqueRows.add(`${d.rowId}-${d.amount}`);
+                hospMap[d.hospital].uniqueRows.set(d.rowId, {
+                    amount: d.amount || 1,
+                    machine: d.machine ? d.machine.trim() : '未命名機型'
+                });
             }
             hospMap[d.hospital].total += (d.amount || 1);
             if (d.status === '已保養') hospMap[d.hospital].completed += (d.amount || 1);
@@ -156,15 +169,22 @@ export default function MaintenanceDashboard() {
 
             // Calculate physical machine count from unique rows
             let machineCount = 0;
-            stats.uniqueRows.forEach(rowKey => {
-                const parts = rowKey.split('-');
-                machineCount += parseInt(parts[1] || '1', 10);
+            const modelCounts = {};
+            stats.uniqueRows.forEach((rowObj) => {
+                machineCount += rowObj.amount;
+                modelCounts[rowObj.machine] = (modelCounts[rowObj.machine] || 0) + rowObj.amount;
             });
+
+            // Convert modelCounts into a sorted array of breakdown objects
+            const modelsBreakdown = Object.entries(modelCounts)
+                .map(([model, count]) => ({ model, count, percentage: Math.round((count / machineCount) * 100) }))
+                .sort((a, b) => b.count - a.count); // sort by count descending
 
             return {
                 name,
                 link: stats.link,
                 machineCount: machineCount,
+                modelsBreakdown,
                 total: stats.total,
                 completed: stats.completed,
                 rate: Math.round(rate * 100),
@@ -397,8 +417,12 @@ export default function MaintenanceDashboard() {
                     <>
                         <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
                             <div style={{ flex: 1, background: 'var(--color-surface-alt)', padding: 12, borderRadius: 8, textAlign: 'center' }}>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>總保養數</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>{hospitalStats.total}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>總實際機器</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>{hospitalStats.totalMachineCount} <span style={{ fontSize: '0.8rem' }}>台</span></div>
+                            </div>
+                            <div style={{ flex: 1, background: 'var(--color-surface-alt)', padding: 12, borderRadius: 8, textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>總任務(保養數)</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>{hospitalStats.total} <span style={{ fontSize: '0.8rem' }}>機台次</span></div>
                             </div>
                             <div style={{ flex: 1, background: 'var(--color-surface-alt)', padding: 12, borderRadius: 8, textAlign: 'center' }}>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>已完成</div>
@@ -479,6 +503,18 @@ export default function MaintenanceDashboard() {
                                                 <span>實際機器數:</span>
                                                 <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{hosp.machineCount} 台</span>
                                             </div>
+
+                                            {/* Machine Breakdown Details */}
+                                            {hosp.modelsBreakdown.length > 0 && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: 8 }}>
+                                                    {hosp.modelsBreakdown.map((mb, idx) => (
+                                                        <span key={idx} style={{ background: 'rgba(56, 189, 248, 0.1)', color: 'var(--color-primary)', padding: '2px 6px', borderRadius: 4, fontSize: '0.65rem' }}>
+                                                            {mb.model}: {mb.count} 台 ({mb.percentage}%)
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+
                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
                                                 <span>總任務進度: {hosp.completed}/{hosp.total}</span>
                                                 <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{hosp.rate}%</span>
