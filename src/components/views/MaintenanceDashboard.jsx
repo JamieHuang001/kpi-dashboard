@@ -139,9 +139,9 @@ export default function MaintenanceDashboard() {
         hospitalData.forEach(d => {
             if (d.skip) return;
             if (!hospMap[d.hospital]) {
-                hospMap[d.hospital] = { total: 0, completed: 0, link: d.hospitalLink || '', machines: new Set() };
+                hospMap[d.hospital] = { total: 0, completed: 0, link: d.hospitalLink || '', uniqueRows: new Set() };
             }
-            if (d.machine) hospMap[d.hospital].machines.add(d.machine); // Store unique machine names to count physical machines
+            if (d.rowId !== undefined) hospMap[d.hospital].uniqueRows.add(`${d.rowId}-${d.amount}`);
             hospMap[d.hospital].total += (d.amount || 1);
             if (d.status === '已保養') hospMap[d.hospital].completed += (d.amount || 1);
         });
@@ -150,10 +150,18 @@ export default function MaintenanceDashboard() {
             let statusLight = '🔴'; // Fall behind / Not started
             if (rate === 1) statusLight = '🟢'; // Completed
             else if (rate > 0) statusLight = '🟡'; // In progress
+
+            // Calculate physical machine count from unique rows
+            let machineCount = 0;
+            stats.uniqueRows.forEach(rowKey => {
+                const parts = rowKey.split('-');
+                machineCount += parseInt(parts[1] || '1', 10);
+            });
+
             return {
                 name,
                 link: stats.link,
-                machineCount: stats.machines.size, // Number of unique machines
+                machineCount: machineCount,
                 total: stats.total,
                 completed: stats.completed,
                 rate: Math.round(rate * 100),
