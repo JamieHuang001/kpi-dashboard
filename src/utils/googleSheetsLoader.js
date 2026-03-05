@@ -493,6 +493,7 @@ export async function fetchHospitalMaintenanceData(spreadsheetId, sheetId, title
             if (isNaN(amtNum) || amtNum === 0) amtNum = 1;
 
             records.push({
+                rowId: i, // 用來讓 dashboard 辨識是不是同一台實體設備
                 sheetTitle: title,
                 type: 'hospital',
                 month: m + 1, // 1~12
