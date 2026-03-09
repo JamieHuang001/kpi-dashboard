@@ -78,7 +78,9 @@ export const TICKET_TYPES = {
     // 保養類
     "居家保養": { category: TICKET_CATEGORIES.MAINTENANCE },
     "醫院保養": { category: TICKET_CATEGORIES.MAINTENANCE },
-    "簡易檢測": { category: TICKET_CATEGORIES.MAINTENANCE },
+
+    // 檢測類 (改歸類在維修)
+    "簡易檢測": { category: TICKET_CATEGORIES.REPAIR },
 
     // 裝機類
     "居家裝機": { category: TICKET_CATEGORIES.INSTALLATION },

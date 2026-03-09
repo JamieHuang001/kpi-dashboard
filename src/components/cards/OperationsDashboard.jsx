@@ -308,7 +308,7 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                                         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text)' }}>{type}</span>
                                         <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#8b5cf6' }}>共 {totalForType} 台</span>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
                                         {modelEntries.map(([model, items]) => (
                                             <div key={model} style={{
                                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
