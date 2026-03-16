@@ -114,17 +114,21 @@ export function useKpiData() {
         const engStats = {};
         let total = { cases: 0, points: 0, tatSum: 0, recallNum: 0, recallDenom: 0 };
         let strat = {
-            revenue: 0, extCost: 0, partsCost: 0, laborCost: 0, warrantyCount: 0, tatOutliers: 0,
+            revenue: 0, extCost: 0, partsCost: 0, laborCost: 0, warrantyCount: 0, warMaintenanceCount: 0, tatOutliers: 0,
             totalPending: 0, totalBacklog: 0, totalConst: 0,
             warRepairTotal: 0, warRepairTypes: { '一般維修': 0, '困難維修': 0, '外修判定': 0 },
             warRepairBrands: { 'Philips': 0, 'ResMed': 0, 'Other': 0 },
+            warAssetClass: {
+                '公司固資': { count: 0, salesPersons: {}, cases: [] },
+                '工程部固資': { count: 0, salesPersons: {}, cases: [] },
+                '一般客戶': { count: 0, salesPersons: {}, cases: [] },
+            },
             models: {}, parts: {},
             categories: {
                 [TICKET_CATEGORIES.REPAIR]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 },
                 [TICKET_CATEGORIES.MAINTENANCE]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 },
                 [TICKET_CATEGORIES.INSTALLATION]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 },
-                [TICKET_CATEGORIES.REFURBISHMENT]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 },
-                '其他': { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 }
+                [TICKET_CATEGORIES.REFURBISHMENT]: { cases: 0, points: 0, revenue: 0, partsCost: 0, extCost: 0 }
             }
         };
 
@@ -177,15 +181,32 @@ export function useKpiData() {
             }
 
             if (c.warranty) {
-                strat.warrantyCount++;
-                const mappedT = mapType(c.type);
-                if (mappedT === '一般維修' || mappedT === '困難維修' || mappedT === '外修判定') {
-                    strat.warRepairTotal++;
-                    if (strat.warRepairTypes[mappedT] !== undefined) {
-                        strat.warRepairTypes[mappedT]++;
+                // 保養案件獨立計算，不計入保固內維修統計
+                if (cat === TICKET_CATEGORIES.MAINTENANCE) {
+                    strat.warMaintenanceCount++;
+                } else {
+                    strat.warrantyCount++;
+
+                    // 固資分類：根據客戶名稱判斷
+                    const clientName = (c.client || '').trim();
+                    let assetClass = '一般客戶';
+                    if (clientName.includes('公司固資')) assetClass = '公司固資';
+                    else if (clientName.includes('工程部固資')) assetClass = '工程部固資';
+
+                    strat.warAssetClass[assetClass].count++;
+                    strat.warAssetClass[assetClass].cases.push(c);
+                    const sp = (c.salesPerson || '').trim() || '未指定';
+                    strat.warAssetClass[assetClass].salesPersons[sp] = (strat.warAssetClass[assetClass].salesPersons[sp] || 0) + 1;
+
+                    const mappedT = mapType(c.type);
+                    if (mappedT === '一般維修' || mappedT === '困難維修' || mappedT === '外修判定') {
+                        strat.warRepairTotal++;
+                        if (strat.warRepairTypes[mappedT] !== undefined) {
+                            strat.warRepairTypes[mappedT]++;
+                        }
+                        const brand = getBrand(c.model);
+                        strat.warRepairBrands[brand] = (strat.warRepairBrands[brand] || 0) + 1;
                     }
-                    const brand = getBrand(c.model);
-                    strat.warRepairBrands[brand] = (strat.warRepairBrands[brand] || 0) + 1;
                 }
             }
             if (c.tat > 5) strat.tatOutliers++;
@@ -222,7 +243,9 @@ export function useKpiData() {
         const avgConst = total.cases ? (strat.totalConst / total.cases).toFixed(1) : '0';
         const recallRate = total.recallDenom ? (total.recallNum / total.recallDenom) * 100 : 0;
         const slaRate = total.cases ? ((strat.tatOutliers / total.cases) * 100).toFixed(1) : '0';
-        const warRate = total.cases ? ((strat.warrantyCount / total.cases) * 100).toFixed(1) : '0';
+        // 保固內案件佔比：只計算維修業務（排除保養）
+        const repairDenom = total.cases - (strat.categories[TICKET_CATEGORIES.MAINTENANCE]?.cases || 0);
+        const warRate = repairDenom > 0 ? ((strat.warrantyCount / repairDenom) * 100).toFixed(1) : '0';
         const sortedModels = Object.entries(strat.models).sort((a, b) => b[1] - a[1]).slice(0, 5);
         const sortedParts = Object.entries(strat.parts).sort((a, b) => b[1] - a[1]).slice(0, 10);
         const sortedEng = Object.values(engStats).sort((a, b) => b.points - a.points);

@@ -23,6 +23,31 @@ const EQUIPMENT_TYPES = [
     { type: '其他設備', icon: '🔧', keywords: [] },
 ];
 
+// 配件/零件關鍵字 — 符合這些的產品名稱不算「本體設備」，改歸「其他設備」
+const ACCESSORY_KEYWORDS = [
+    '管路', '面罩', '濾網', '水盒', '過濾', '加溫管', '矽膠墊', '頭帶',
+    '接頭', '電源供應器', '充電', '鼻枕', '鼻罩', '口鼻罩', '全臉', '配件',
+    '耗材', '軟管', '延長管', '轉接', '電池', 'mask', 'tube', 'filter',
+    'cushion', 'headgear', 'humidifier tub', '水槽', '鼻墊', '固定帶', '穩壓器',
+];
+
+// 已離開管轄的設備狀態 — 直接排除不計入統計
+const EXCLUDED_STATUSES = ['租購', '銷貨', '遺失', '帳物不符', '轉倉'];
+
+// 判斷是否為配件
+function isAccessory(productName) {
+    const name = (productName || '').toLowerCase();
+    return ACCESSORY_KEYWORDS.some(k => name.includes(k.toLowerCase()));
+}
+
+// 業務端可調度設備排除清單 — 已無再使用的設備
+const DISPATCHABLE_EXCLUSIONS = [
+    { keyword: 'evolution 3e', type: 'CPAP/BiPAP 呼吸器' },
+    { keyword: 'evolution3e', type: 'CPAP/BiPAP 呼吸器' },
+    { keyword: 'bipap synchrony', type: 'CPAP/BiPAP 呼吸器' },
+    { keyword: '1029759', type: 'CPAP/BiPAP 呼吸器' },
+];
+
 // ===== 通用 Modal =====
 function DetailModal({ isOpen, onClose, title, children }) {
     if (!isOpen) return null;
@@ -113,6 +138,9 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
         };
         let totalDispatchable = 0;
 
+        // 無帳設備追蹤
+        const unregistered = { total: 0, items: [] };
+
         assetData.forEach(a => {
             const company = (a.company || '').trim();
             // 只統計公司是 "泰永", "永定", "富齡", "無帳" 的資產
@@ -120,8 +148,22 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                 return;
             }
 
-            const name = `${a.productName || ''} ${a.model || ''}`.toLowerCase();
             const s = (a.status || '').trim();
+
+            // 排除已離開管轄的設備：租購、銷貨、遺失/帳物不符、轉倉
+            if (EXCLUDED_STATUSES.some(es => s.includes(es))) {
+                return;
+            }
+
+            // 無帳設備另外分類
+            if (company.includes('無帳')) {
+                unregistered.total++;
+                unregistered.items.push(a);
+                return;
+            }
+
+            const productName = (a.productName || '').trim();
+            const name = `${productName} ${a.model || ''}`.toLowerCase();
             const loc = (a.location || '').trim();
             const pClient = (a.client || '').trim();
 
@@ -134,23 +176,28 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
             let matched = false;
             let matchedType = null;
 
-            for (const et of EQUIPMENT_TYPES) {
-                if (et.keywords.length > 0 && et.keywords.some(k => name.includes(k.toLowerCase()))) {
-                    categorized[et.type].total++;
-                    matchedType = et.type;
+            // 先檢查是否為配件，如果是則直接歸類為「其他設備」
+            const accessory = isAccessory(productName);
 
-                    if (['待維修', '維修中'].includes(s)) { categorized[et.type].repair++; categorized[et.type].items.repair.push(a); }
-                    else if (['待測', '測試中'].includes(s)) { categorized[et.type].testing++; categorized[et.type].items.testing.push(a); }
-                    else if (['找不到', '報廢', '故障'].includes(s)) { categorized[et.type].abnormal++; categorized[et.type].items.abnormal.push(a); }
-                    else { categorized[et.type].ok++; categorized[et.type].items.ok.push(a); }
+            if (!accessory) {
+                for (const et of EQUIPMENT_TYPES) {
+                    if (et.keywords.length > 0 && et.keywords.some(k => name.includes(k.toLowerCase()))) {
+                        categorized[et.type].total++;
+                        matchedType = et.type;
 
-                    if (isIdle && !['待維修', '維修中', '待測', '測試中', '找不到', '報廢', '故障'].some(k => s.includes(k))) {
-                        categorized[et.type].idle++;
-                        categorized[et.type].items.idle.push(a);
+                        if (['待維修', '維修中'].includes(s)) { categorized[et.type].repair++; categorized[et.type].items.repair.push(a); }
+                        else if (['待測', '測試中'].includes(s)) { categorized[et.type].testing++; categorized[et.type].items.testing.push(a); }
+                        else if (['找不到', '報廢', '故障'].includes(s)) { categorized[et.type].abnormal++; categorized[et.type].items.abnormal.push(a); }
+                        else { categorized[et.type].ok++; categorized[et.type].items.ok.push(a); }
+
+                        if (isIdle && !['待維修', '維修中', '待測', '測試中', '找不到', '報廢', '故障'].some(k => s.includes(k))) {
+                            categorized[et.type].idle++;
+                            categorized[et.type].items.idle.push(a);
+                        }
+
+                        matched = true;
+                        break;
                     }
-
-                    matched = true;
-                    break;
                 }
             }
             if (!matched) {
@@ -163,20 +210,26 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                 }
             }
 
-            // Extract dispatchable models for 呼吸器 and 氧氣機
+            // Extract dispatchable models for 呼吸器 and 氧氣機 (排除已不再使用的設備)
             if (matchedType && dispatchableList[matchedType] && isIdle && !['待維修', '維修中', '待測', '測試中', '找不到', '報廢', '故障'].some(k => s.includes(k))) {
-                const pName = (a.productName || '').trim();
-                const mName = (a.model || '').trim();
-                let displayName = '未區分設備';
-                if (pName && mName) displayName = `${pName} (${mName})`;
-                else if (pName) displayName = pName;
-                else if (mName) displayName = mName;
+                // 檢查是否在排除清單中
+                const isExcluded = DISPATCHABLE_EXCLUSIONS.some(ex =>
+                    ex.type === matchedType && (name.includes(ex.keyword) || (a.serialNo || '').toLowerCase().includes(ex.keyword))
+                );
+                if (!isExcluded) {
+                    const pName = productName;
+                    const mName = (a.model || '').trim();
+                    let displayName = '未區分設備';
+                    if (pName && mName) displayName = `${pName} (${mName})`;
+                    else if (pName) displayName = pName;
+                    else if (mName) displayName = mName;
 
-                if (!dispatchableList[matchedType][displayName]) {
-                    dispatchableList[matchedType][displayName] = [];
+                    if (!dispatchableList[matchedType][displayName]) {
+                        dispatchableList[matchedType][displayName] = [];
+                    }
+                    dispatchableList[matchedType][displayName].push(a);
+                    totalDispatchable++;
                 }
-                dispatchableList[matchedType][displayName].push(a);
-                totalDispatchable++;
             }
         });
 
@@ -184,7 +237,7 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
         const totalOk = Object.values(categorized).reduce((s, c) => s + c.ok, 0);
         const readinessRate = totalEquip > 0 ? (totalOk / totalEquip) * 100 : 0;
 
-        return { categorized, totalEquip, totalOk, readinessRate, dispatchableList, totalDispatchable };
+        return { categorized, totalEquip, totalOk, readinessRate, dispatchableList, totalDispatchable, unregistered };
     }, [assetData]);
 
     if (!stats) {
@@ -250,19 +303,34 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                         ))}
                     </div>
 
-                    {/* Equipment type breakdown */}
+                    {/* Equipment type breakdown - clickable */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {Object.values(stats.categorized).filter(c => c.total > 0).map(cat => {
                             const pct = cat.total > 0 ? (cat.ok / cat.total) * 100 : 0;
+                            // Collect all items for this category for the detail modal
+                            const allItems = [
+                                ...cat.items.ok,
+                                ...cat.items.repair,
+                                ...cat.items.testing,
+                                ...cat.items.abnormal,
+                            ].map(a => ({ ...a, equipType: cat.type }));
                             return (
-                                <div key={cat.type}>
+                                <div key={cat.type}
+                                    onClick={() => cat.total > 0 && setModalData({ label: `${cat.icon} ${cat.type}`, color: pct >= 90 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444', items: allItems })}
+                                    style={{ cursor: cat.total > 0 ? 'pointer' : 'default', padding: '6px 8px', borderRadius: 8, transition: 'background 0.15s' }}
+                                    onMouseEnter={e => { if (cat.total > 0) e.currentTarget.style.background = 'var(--color-surface-alt)'; }}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                                         <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text)' }}>
                                             {cat.icon} {cat.type}
                                         </span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: pct >= 90 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444' }}>
-                                            {pct.toFixed(0)}% ({cat.ok}/{cat.total})
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: pct >= 90 ? '#10b981' : pct >= 70 ? '#f59e0b' : '#ef4444' }}>
+                                                {pct.toFixed(0)}% ({cat.ok}/{cat.total})
+                                            </span>
+                                            {cat.total > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--color-primary)', fontWeight: 600 }}>明細 →</span>}
+                                        </div>
                                     </div>
                                     <ProgressBar value={pct} color={
                                         pct >= 90 ? 'linear-gradient(90deg, #10b981, #34d399)' :
@@ -335,6 +403,57 @@ const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+            )}
+
+            {/* ⚠️ 無帳設備區塊 */}
+            {stats.unregistered && stats.unregistered.total > 0 && (
+                <div style={{
+                    marginTop: 20, padding: 16, background: 'rgba(239, 68, 68, 0.04)',
+                    borderRadius: 12, border: '1px solid rgba(239, 68, 68, 0.2)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                        <div style={{
+                            background: '#ef4444', color: 'white', padding: '6px 10px',
+                            borderRadius: 8, fontSize: '0.9rem', fontWeight: 700
+                        }}>
+                            ⚠️ 無帳設備
+                        </div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                            共 <strong style={{ color: '#ef4444' }}>{stats.unregistered.total}</strong> 台 — 不計入上方統計
+                        </span>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '2px solid rgba(239, 68, 68, 0.2)', textAlign: 'left' }}>
+                                    <th style={{ padding: '6px 8px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>產品名稱</th>
+                                    <th style={{ padding: '6px 8px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>型號</th>
+                                    <th style={{ padding: '6px 8px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>序號</th>
+                                    <th style={{ padding: '6px 8px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>狀態</th>
+                                    <th style={{ padding: '6px 8px', fontWeight: 700, color: 'var(--color-text-secondary)' }}>位置</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {stats.unregistered.items.slice(0, 50).map((item, i) => (
+                                    <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--color-surface-alt)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                        <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--color-text)' }}>{item.productName || '-'}</td>
+                                        <td style={{ padding: '6px 8px', color: 'var(--color-text-secondary)' }}>{item.model || '-'}</td>
+                                        <td style={{ padding: '6px 8px', fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--color-primary)' }}>{item.serialNo || '-'}</td>
+                                        <td style={{ padding: '6px 8px' }}>
+                                            <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: '0.72rem', fontWeight: 700, background: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>{item.status || '-'}</span>
+                                        </td>
+                                        <td style={{ padding: '6px 8px', color: 'var(--color-text-secondary)', fontSize: '0.72rem' }}>{item.location || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {stats.unregistered.items.length > 50 && (
+                            <div style={{ textAlign: 'center', padding: 8, color: 'var(--color-text-secondary)', fontSize: '0.72rem' }}>⚠️ 僅顯示前 50 筆，共 {stats.unregistered.items.length} 筆</div>
+                        )}
                     </div>
                 </div>
             )}

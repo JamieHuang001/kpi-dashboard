@@ -55,6 +55,7 @@ export function processCSVText(text) {
         id: headers.findIndex(h => h.includes('工單') || h.includes('Order') || h.includes('ID')),
         eng: headers.findIndex(h => h.includes('工程師') || h.includes('Engineer')),
         client: headers.findIndex(h => h.includes('客戶名稱') || h.includes('Customer')),
+        salesPerson: headers.findIndex(h => h.includes('負責業務') || h.includes('Sales')),
         date_recv: headers.findIndex(h => h === '收到日期' || h.includes('收到日期')),
         date_first: headers.findIndex(h => h === '初步處理日期' || h.includes('初步處理')),
         date_quote: headers.findIndex(h => h === '報價日期' || h.includes('報價日期')),
@@ -97,6 +98,7 @@ export function processCSVText(text) {
         let eng = (row[map.eng] || "").trim();
         let sn = (row[map.sn] || "").trim();
         let client = map.client > -1 ? (row[map.client] || "").trim() : "Unknown";
+        let salesPerson = map.salesPerson > -1 ? (row[map.salesPerson] || "").trim() : "";
 
         if (!id && lastValidID) id = lastValidID;
         else if (id) lastValidID = id;
@@ -166,7 +168,7 @@ export function processCSVText(text) {
 
         if (!caseMap.has(id)) {
             caseMap.set(id, {
-                id, engineer: eng, date: dFinish, sn, type, model, parts, client, fault,
+                id, engineer: eng, date: dFinish, sn, type, model, parts, client, salesPerson, fault,
                 rawTat, tat: effTat, pendingDays, backlogDays, constDays,
                 revenue: revAmt, extCost: extAmt, warranty: isWarranty,
                 req: reqStr, status: statusStr,

@@ -202,6 +202,22 @@ export default function App() {
     setModal({ open: true, title: '🛡️ 真實保固維修案件明細', cases, analysis: null, isSla: false });
   }, [displayCases]);
 
+  const openAssetClassModal = useCallback((assetClass) => {
+    const cases = displayCases.filter(c => {
+      if (!c.warranty) return false;
+      // 排除保養案件
+      if (getCategory(mapType(c.type)) === TICKET_CATEGORIES.MAINTENANCE) return false;
+      
+      const clientName = (c.client || '').trim();
+      let cClass = '一般客戶';
+      if (clientName.includes('公司固資')) cClass = '公司固資';
+      else if (clientName.includes('工程部固資')) cClass = '工程部固資';
+      
+      return cClass === assetClass;
+    }).sort((a, b) => (b.date || 0) - (a.date || 0));
+    setModal({ open: true, title: `🛡️ 保固維修明細 - ${assetClass}`, cases, analysis: null, isSla: false });
+  }, [displayCases]);
+
   const openDeepAnalysis = useCallback((chartType, label) => {
     const subCases = displayCases.filter(c => {
       const t = mapType(c.type);
@@ -419,7 +435,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 24 }}>
               <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #0284c7, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2rem', fontWeight: 800 }}>YD</div>
               <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>永定生物科技 技術部 KPI 儀表板</h1>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.7.0 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.8.0 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
 
               {/* Google Sheets 一鍵下載 */}
               <button onClick={loadFromGoogleSheets} disabled={isGoogleLoading} style={{
@@ -492,11 +508,14 @@ export default function App() {
                 <KpiCard icon="⏳" label="SLA 服務超標率" value={stats ? `${stats.slaRate}%` : '0%'} color="#f43f5e"
                   danger={stats && parseFloat(stats.slaRate) > 10} onClick={openSlaModal}
                   sub={stats ? `超標件數: ${stats.strat.tatOutliers} 件 (點擊查看明細)` : ''} />
-                <KpiCard icon="🛡️" label="保固內案件佔比" value={stats ? `${stats.warRate}%` : '0%'} color="#0ea5e9"
+                <KpiCard icon="🛡️" label="保固內案件佔比 (不含保養)" value={stats ? `${stats.warRate}%` : '0%'} color="#0ea5e9"
                   sub={
                     stats ? (
                       <div style={{ fontSize: '0.75rem', marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div style={{ background: 'rgba(14, 165, 233, 0.1)', padding: '4px 8px', borderRadius: 4, fontWeight: 700 }}>總保固件數：{stats.strat.warrantyCount} 件</div>
+                        <div style={{ background: 'rgba(14, 165, 233, 0.1)', padding: '4px 8px', borderRadius: 4, fontWeight: 700 }}>保固內維修件數：{stats.strat.warrantyCount} 件</div>
+                        {stats.strat.warMaintenanceCount > 0 && (
+                          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>（保養案件 {stats.strat.warMaintenanceCount} 件已獨立計算）</div>
+                        )}
                         {stats.strat.warrantyCount > 0 && (
                           <div style={{ borderLeft: '2px solid rgba(14, 165, 233, 0.3)', paddingLeft: 8 }}>
                             <div style={{ color: 'var(--color-text)', fontWeight: 600, marginBottom: 2 }}>
@@ -517,6 +536,39 @@ export default function App() {
                               <div style={{ color: '#2563eb' }}>ResMed: {stats.strat.warRepairBrands['ResMed'] || 0}</div>
                               {stats.strat.warRepairBrands['Other'] > 0 && <div style={{ color: '#64748b' }}>Other: {stats.strat.warRepairBrands['Other']}</div>}
                             </div>
+                            
+                            {/* 固資與客戶分類 */}
+                            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed rgba(14, 165, 233, 0.3)' }}>
+                              <div style={{ color: 'var(--color-text)', fontWeight: 600, marginBottom: 4 }}>維修對象分類：</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {['公司固資', '工程部固資', '一般客戶'].map(ac => {
+                                  const cData = stats.strat.warAssetClass[ac];
+                                  if (!cData || cData.count === 0) return null;
+                                  return (
+                                    <div key={ac} style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                                        <div style={{ fontWeight: 600, color: ac === '一般客戶' ? '#64748b' : '#0ea5e9' }}>{ac}</div>
+                                        <div 
+                                          style={{ cursor: 'pointer', textDecoration: 'underline', color: '#0ea5e9', fontWeight: 600 }}
+                                          onClick={() => openAssetClassModal(ac)}
+                                          title={`查看${ac}明細`}
+                                        >
+                                          {cData.count} 件
+                                        </div>
+                                      </div>
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 8px', paddingLeft: 8, borderLeft: '1px solid rgba(14, 165, 233, 0.2)' }}>
+                                        {Object.entries(cData.salesPersons)
+                                          .sort((a, b) => b[1] - a[1])
+                                          .map(([sp, count]) => (
+                                          <div key={sp}>{sp || '未指定'}: {count}</div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            
                           </div>
                         )}
                       </div>
@@ -534,7 +586,7 @@ export default function App() {
                       { key: TICKET_CATEGORIES.REPAIR, icon: '🔧', color: '#dc2626', desc: '故障排除與零件更換' },
                       { key: TICKET_CATEGORIES.MAINTENANCE, icon: '🛡️', color: '#16a34a', desc: '定期保養與合約履約' },
                       { key: TICKET_CATEGORIES.INSTALLATION, icon: '📦', color: '#d97706', desc: '新機交付與專案建置' },
-                      { key: TICKET_CATEGORIES.REFURBISHMENT, icon: '♻️', color: '#0284c7', desc: '內部設備資產整備' },
+                      { key: TICKET_CATEGORIES.REFURBISHMENT, icon: '♻️', color: '#0284c7', desc: '內部設備資產整備與其他' },
                     ].map(cat => {
                       const cData = stats.strat.categories[cat.key];
                       if (!cData) return null;

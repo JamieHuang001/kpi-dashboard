@@ -66,7 +66,7 @@ export const TICKET_CATEGORIES = {
     REPAIR: '維修',
     MAINTENANCE: '保養',
     INSTALLATION: '裝機與專案',
-    REFURBISHMENT: '內部整備'
+    REFURBISHMENT: '內部整備與其他'
 };
 
 export const TICKET_TYPES = {
@@ -91,7 +91,7 @@ export const TICKET_TYPES = {
     "批量整新": { category: TICKET_CATEGORIES.REFURBISHMENT },
 
     // 預設
-    "其他預設": { category: '其他' }
+    "其他預設": { category: TICKET_CATEGORIES.REFURBISHMENT }
 };
 
 export function getCategory(mappedType) {
