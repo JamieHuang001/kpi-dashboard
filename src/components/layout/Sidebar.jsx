@@ -106,7 +106,7 @@ export default function Sidebar({ activeSection, onNavigate, isOpen, onClose }) 
                         </div>
                     </button>
                     <div style={{ textAlign: 'center', marginTop: 8, fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
-                        V5.8.0 BI Dashboard
+                        V5.9.0 BI Dashboard
                     </div>
                 </div>
             </div>
