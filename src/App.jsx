@@ -648,7 +648,7 @@ export default function App() {
 
               {/* Operational KPIs with Sparklines */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 12, marginBottom: 24 }}>
-                <KpiCard icon="📋" label="完修總數" value={stats?.total?.cases || 0} color="#3b82f6" sub="(含保養裝機)"
+                <KpiCard icon="📋" label="服務總件數" value={stats?.total?.cases || 0} color="#3b82f6" sub="(含保養裝機)"
                   sparkData={monthlyTrends?.cases} sparkColor="#3b82f6" />
                 <KpiCard icon="⏱️" label="均 TAT (淨)" value={stats ? `${stats.avgTat} 天` : '0 天'} color="#0d9488"
                   sub={stats ? `剔除: 共 ${stats.strat.totalPending} 天等待期` : ''}
