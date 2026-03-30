@@ -18,7 +18,7 @@ import CaseMindMap from './components/cards/CaseMindMap';
 import ComparativeAnalytics from './components/cards/ComparativeAnalytics';
 import MaintenanceDashboard from './components/views/MaintenanceDashboard';
 import { useKpiData } from './hooks/useKpiData';
-import { mapType, getSlaTarget, TICKET_CATEGORIES } from './utils/calculations';
+import { mapType, getSlaTarget, TICKET_CATEGORIES, getCategory } from './utils/calculations';
 
 // ===== Module-level constants (avoid re-creation per render) =====
 const ASSET_STATUS_COLORS = {
@@ -193,13 +193,37 @@ export default function App() {
     setModal({ open: true, title: `🏆 重點客戶: ${clientName} - 叫修明細`, cases, analysis, isSla: false });
   }, [displayCases]);
 
+  const openWarTotalModal = useCallback(() => {
+    const cases = displayCases.filter(c => {
+      if (!c.warranty) return false;
+      const t = mapType(c.type);
+      return getCategory(t) !== TICKET_CATEGORIES.MAINTENANCE;
+    }).sort((a, b) => (b.date || 0) - (a.date || 0));
+    setModal({ open: true, title: '🛡️ 保固內總案件明細 (不含保養)', cases, analysis: null, isSla: false });
+  }, [displayCases]);
+
   const openWarRepairModal = useCallback(() => {
     const cases = displayCases.filter(c => {
       if (!c.warranty) return false;
       const t = mapType(c.type);
-      return t === '一般維修' || t === '困難維修' || t === '外修判定';
+      return t === '一般維修' || t === '困難維修' || t === '外修判定' || t === '簡易檢測';
     }).sort((a, b) => (b.date || 0) - (a.date || 0));
     setModal({ open: true, title: '🛡️ 真實保固維修案件明細', cases, analysis: null, isSla: false });
+  }, [displayCases]);
+
+  const openWarOtherModal = useCallback(() => {
+    const cases = displayCases.filter(c => {
+      if (!c.warranty) return false;
+      const t = mapType(c.type);
+      if (getCategory(t) === TICKET_CATEGORIES.MAINTENANCE) return false;
+      return !(t === '一般維修' || t === '困難維修' || t === '外修判定' || t === '簡易檢測');
+    }).sort((a, b) => (b.date || 0) - (a.date || 0));
+    setModal({ open: true, title: '🛡️ 保固內其他案件明細 (誤差名單)', cases, analysis: null, isSla: false });
+  }, [displayCases]);
+
+  const openSectorModal = useCallback((sectorKey) => {
+    const cases = displayCases.filter(c => getCategory(mapType(c.type)) === sectorKey).sort((a, b) => (b.date || 0) - (a.date || 0));
+    setModal({ open: true, title: `📌 業務板塊明細：${sectorKey}`, cases, analysis: null, isSla: false });
   }, [displayCases]);
 
   const openAssetClassModal = useCallback((assetClass) => {
@@ -435,7 +459,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 24 }}>
               <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #0284c7, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '2rem', fontWeight: 800 }}>YD</div>
               <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>永定生物科技 技術部 KPI 儀表板</h1>
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.9.0 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', margin: 0 }}>V5.9.1 BI Dashboard — 請上傳 CSV 或自動下載 Google Sheets</p>
 
               {/* Google Sheets 一鍵下載 */}
               <button onClick={loadFromGoogleSheets} disabled={isGoogleLoading} style={{
@@ -526,16 +550,34 @@ export default function App() {
                               >{stats.strat.warRepairTotal}</span>
                               <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginLeft: 4 }}>({((stats.strat.warRepairTotal / stats.strat.warrantyCount) * 100).toFixed(1)}%)</span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
-                              <div>一般維修: {stats.strat.warRepairTypes['一般維修'] || 0}</div>
-                              <div>困難維修: {stats.strat.warRepairTypes['困難維修'] || 0}</div>
-                              <div>外修判定: {stats.strat.warRepairTypes['外修判定'] || 0}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px', fontSize: '0.7rem', color: 'var(--color-text-secondary)', flex: 1 }}>
+                                <div>一般維修: {stats.strat.warRepairTypes['一般維修'] || 0}</div>
+                                <div>困難維修: {stats.strat.warRepairTypes['困難維修'] || 0}</div>
+                                <div>外修判定: {stats.strat.warRepairTypes['外修判定'] || 0}</div>
+                                <div>簡易檢測: {stats.strat.warRepairTypes['簡易檢測'] || 0}</div>
+                              </div>
+                              {stats.strat.warrantyCount > stats.strat.warRepairTotal && (
+                                <div style={{ fontSize: '0.7rem', color: '#f59e0b', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600, paddingLeft: 8 }} onClick={openWarOtherModal} title="點擊查看未列入真實維修的項目">
+                                  誤差名單 ({stats.strat.warrantyCount - stats.strat.warRepairTotal})
+                                </div>
+                              )}
                             </div>
-                            <div style={{ marginTop: 4, display: 'flex', gap: 8, fontSize: '0.7rem', fontWeight: 600 }}>
-                              <div style={{ color: '#0284c7' }}>Philips: {stats.strat.warRepairBrands['Philips'] || 0}</div>
-                              <div style={{ color: '#2563eb' }}>ResMed: {stats.strat.warRepairBrands['ResMed'] || 0}</div>
-                              {stats.strat.warRepairBrands['Other'] > 0 && <div style={{ color: '#64748b' }}>Other: {stats.strat.warRepairBrands['Other']}</div>}
+                            <div style={{ marginTop: 4, display: 'flex', gap: '4px 8px', flexWrap: 'wrap', fontSize: '0.7rem', fontWeight: 600 }}>
+                              {Object.entries(stats.strat.warRepairBrands).sort((a, b) => b[1] - a[1]).map(([b, count]) => {
+                                if (count === 0) return null;
+                                const color = b === 'Philips' ? '#0284c7' : b === 'ResMed' ? '#2563eb' : b === '萊鎂' ? '#10b981' : b === '怡氧' ? '#8b5cf6' : b === '永悅' ? '#f59e0b' : '#64748b';
+                                return <div key={b} style={{ color }}>{b}: {count}</div>;
+                              })}
                             </div>
+                            {stats.strat.warRepairDeviceTypes && (
+                              <div style={{ marginTop: 4, display: 'flex', gap: '4px 8px', flexWrap: 'wrap', fontSize: '0.7rem', fontWeight: 600, borderTop: '1px dashed rgba(14, 165, 233, 0.2)', paddingTop: 4 }}>
+                                {Object.entries(stats.strat.warRepairDeviceTypes).sort((a, b) => b[1] - a[1]).map(([dt, count]) => {
+                                  if (count === 0) return null;
+                                  return <div key={dt} style={{ color: '#0f766e' }}>{dt}: {count}</div>;
+                                })}
+                              </div>
+                            )}
                             
                             {/* 固資與客戶分類 */}
                             <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed rgba(14, 165, 233, 0.3)' }}>
@@ -616,27 +658,78 @@ export default function App() {
                           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>案量佔比</span>
-                              <span style={{ fontWeight: 800, color: cat.color, fontSize: '1.1rem' }}>{cData.cases} <span style={{ fontSize: '0.8rem' }}>件 ({pct}%)</span></span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontWeight: 800, color: cat.color, fontSize: '1.1rem' }}>
+                                  {cData.cases} <span style={{ fontSize: '0.8rem' }}>件 ({pct}%)</span>
+                                </span>
+                                <button
+                                  type="button" 
+                                  onClick={(e) => { 
+                                    e.preventDefault(); 
+                                    e.stopPropagation(); 
+                                    openSectorModal(cat.key); 
+                                  }}
+                                  title={`點擊查看 ${cat.key} 所有單據明細`}
+                                  style={{ 
+                                    padding: '2px 8px', borderRadius: 4, cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600,
+                                    background: `${cat.color}15`, color: cat.color, border: `1px solid ${cat.color}40`
+                                  }}
+                                  onMouseEnter={(e) => e.target.style.background = `${cat.color}25`}
+                                  onMouseLeave={(e) => e.target.style.background = `${cat.color}15`}
+                                >
+                                  查看明細
+                                </button>
+                              </div>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>貢獻工時點數</span>
                               <span style={{ fontWeight: 700, color: 'var(--color-text)' }}>{cData.points.toFixed(1)} pt</span>
                             </div>
                             {cat.key === TICKET_CATEGORIES.REPAIR && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--color-border)' }}>
-                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>報修毛利</span>
-                                <span style={{ fontWeight: 800, color: '#8b5cf6' }}>
-                                  ${margin.toLocaleString()}
-                                </span>
-                              </div>
+                              <>
+                                {cData.brands && (
+                                  <div style={{ display: 'flex', gap: '4px 8px', flexWrap: 'wrap', marginTop: 'auto', paddingTop: 8, fontSize: '0.75rem', fontWeight: 600 }}>
+                                    {Object.entries(cData.brands).sort((a, b) => b[1] - a[1]).map(([b, count]) => {
+                                      if (count === 0) return null;
+                                      const color = b === 'Philips' ? '#0284c7' : b === 'ResMed' ? '#2563eb' : b === '萊鎂' ? '#10b981' : b === '怡氧' ? '#8b5cf6' : b === '永悅' ? '#f59e0b' : '#64748b';
+                                      return <div key={b} style={{ color }}>{b}: {count}</div>;
+                                    })}
+                                  </div>
+                                )}
+                                {cData.deviceTypes && (
+                                  <div style={{ display: 'flex', gap: '4px 8px', flexWrap: 'wrap', marginTop: 4, fontSize: '0.75rem', fontWeight: 600 }}>
+                                    {Object.entries(cData.deviceTypes).sort((a, b) => b[1] - a[1]).map(([dt, count]) => {
+                                      if (count === 0) return null;
+                                      return <div key={dt} style={{ color: '#0f766e' }}>{dt}: {count}</div>;
+                                    })}
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: cData.brands ? 4 : 'auto', paddingTop: 8, borderTop: '1px solid var(--color-border)' }}>
+                                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>報修毛利</span>
+                                  <span style={{ fontWeight: 800, color: '#8b5cf6' }}>
+                                    ${margin.toLocaleString()}
+                                  </span>
+                                </div>
+                              </>
                             )}
                             {cat.key === TICKET_CATEGORIES.MAINTENANCE && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--color-border)' }}>
-                                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>保養收益</span>
-                                <span style={{ fontWeight: 800, color: '#10b981' }}>
-                                  ${cData.revenue.toLocaleString()}
-                                </span>
-                              </div>
+                              <>
+                                <div style={{ background: 'rgba(22, 163, 74, 0.08)', padding: '6px 8px', borderRadius: 4, marginTop: 'auto', marginBottom: 8, pt: 4 }}>
+                                  <div style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', lineHeight: 1.3, marginBottom: 4 }}>
+                                    📝 定義：有合約要求或排程前往的定期清洗、校正等純保養案件。獨立於實際發生故障件數外計算，避免稀釋產品返修比。
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 12, fontSize: '0.7rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                                    <div>居家保養: {cData.subTypes?.['居家保養'] || 0}</div>
+                                    <div>醫院保養: {cData.subTypes?.['醫院保養'] || 0}</div>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--color-border)' }}>
+                                  <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>保養收益</span>
+                                  <span style={{ fontWeight: 800, color: '#10b981' }}>
+                                    ${cData.revenue.toLocaleString()}
+                                  </span>
+                                </div>
+                              </>
                             )}
                           </div>
                         </div>

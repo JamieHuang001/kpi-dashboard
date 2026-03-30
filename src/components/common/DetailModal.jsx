@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { mapType, getSlaTarget } from '../../utils/calculations';
 
 export default function DetailModal({ isOpen, onClose, title, cases, analysisHtml, isSlaView }) {
     const [page, setPage] = useState(0);
@@ -59,19 +60,19 @@ export default function DetailModal({ isOpen, onClose, title, cases, analysisHtm
                             {paged.length === 0 ? (
                                 <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--color-text-secondary)', padding: 20 }}>無相關資料</td></tr>
                             ) : paged.map(c => (
-                                <tr key={c.id} style={{ background: isSlaView && c.tat > 5 ? 'rgba(239, 68, 68, 0.04)' : undefined }}>
+                                <tr key={c.id} style={{ background: isSlaView && c.tat > getSlaTarget(mapType(c.type)) ? 'rgba(239, 68, 68, 0.04)' : undefined }}>
                                     <td style={{ fontWeight: 600 }}>{c.id}</td>
                                     <td>{c.date ? c.date.toISOString().split('T')[0] : '-'}</td>
                                     <td>{c.model || '-'}</td>
                                     <td style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{c.sn || '-'}</td>
                                     <td style={{ textAlign: 'center', color: 'var(--color-text-secondary)' }}>{c.rawTat}</td>
-                                    <td style={{ textAlign: 'center', fontWeight: c.tat > 5 ? 800 : 400, color: c.tat > 5 ? '#dc2626' : undefined }}>
+                                    <td style={{ textAlign: 'center', fontWeight: c.tat > getSlaTarget(mapType(c.type)) ? 800 : 400, color: c.tat > getSlaTarget(mapType(c.type)) ? '#dc2626' : undefined }}>
                                         {c.tat}
                                     </td>
                                     <td style={{ textAlign: 'center' }}>
                                         {c.isRecall && <span className="badge badge-danger" style={{ marginRight: 4 }}>返修</span>}
-                                        {c.tat > 5 && <span className="badge badge-warning">SLA逾期</span>}
-                                        {!c.isRecall && c.tat <= 5 && <span style={{ color: 'var(--color-text-secondary)' }}>正常</span>}
+                                        {c.tat > getSlaTarget(mapType(c.type)) && <span className="badge badge-warning">SLA逾期</span>}
+                                        {!c.isRecall && c.tat <= getSlaTarget(mapType(c.type)) && <span style={{ color: 'var(--color-text-secondary)' }}>正常</span>}
                                         {c.pendingDays > 0 && <div style={{ fontSize: '0.68rem', color: 'var(--color-info)', marginTop: 2 }}>(扣除待料{c.pendingDays}天)</div>}
                                     </td>
                                     <td>{c.type}</td>

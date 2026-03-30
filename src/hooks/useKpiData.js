@@ -116,8 +116,8 @@ export function useKpiData() {
         let strat = {
             revenue: 0, extCost: 0, partsCost: 0, laborCost: 0, warrantyCount: 0, warMaintenanceCount: 0, tatOutliers: 0,
             totalPending: 0, totalBacklog: 0, totalConst: 0,
-            warRepairTotal: 0, warRepairTypes: { '一般維修': 0, '困難維修': 0, '外修判定': 0 },
-            warRepairBrands: { 'Philips': 0, 'ResMed': 0, 'Other': 0 },
+            warRepairTotal: 0, warRepairTypes: { '一般維修': 0, '困難維修': 0, '外修判定': 0, '簡易檢測': 0 },
+            warRepairBrands: {},
             warAssetClass: {
                 '公司固資': { count: 0, salesPersons: {}, cases: [] },
                 '工程部固資': { count: 0, salesPersons: {}, cases: [] },
@@ -134,16 +134,53 @@ export function useKpiData() {
 
         const getBrand = (modelStr) => {
             const m = (modelStr || '').toLowerCase();
-            // ResMed Devices
-            if (m.includes('airsense') || m.includes('aircurve') || m.includes('lumis') || m.includes('resmed') ||
-                m.includes('s9') || m.includes('s10') || m.includes('astral') || m.includes('stellar')) return 'ResMed';
-
-            // Philips Devices (CPAP, Oxygen, Sleep testing, etc.)
-            if (m.includes('dreamstation') || m.includes('trilogy') || m.includes('bipap') || m.includes('philips') ||
-                m.includes('v60') || m.includes('v30') || m.includes('coughassist') || m.includes('everflo') ||
-                m.includes('alice') || m.includes('ldxn') || m.includes('sleepware')) return 'Philips';
+            
+            // CPAP & BiPAP & PSG & 氧氣機 & 軟體 - ResMed
+            if (['airmini', 'airsense', 'aircurve', 'lumis', 's9', 's10', 'astral', 'stellar', 'apnealink'].some(k => m.includes(k))) return 'ResMed';
+            
+            // CPAP & BiPAP & PSG & 氧氣機 & 軟體 - Philips
+            if (['inx500', 'inx700', 'inx1030', 'twg', 'euxhcp', 'in56', 'ds', 'ht15', // CPAP
+                 'trilogy', 'in2100', 'in2200', 'v60', 'a30', 'a40', '1054096', '1040000', // BiPAP
+                 'alice', 'sleepware', 'm5525', 'p5514', 'p5512', '1078758', // PSG
+                 'everflo', // 氧氣機
+                 'care orchestrator', 'encore' // 軟體
+                ].some(k => m.includes(k))) return 'Philips';
+            
+            // 萊鎂
+            if (['inap'].some(k => m.includes(k))) return '萊鎂';
+            
+            // 怡氧
+            if (['oc505'].some(k => m.includes(k))) return '怡氧';
+            
+            // 永悅
+            if (m.includes('安心氧')) return '永悅';
 
             return 'Other';
+        };
+
+        const getDeviceType = (modelStr) => {
+            const m = (modelStr || '').toLowerCase();
+            
+            // CPAP
+            if (['airmini', 'airsense', 'aircurve', 'lumis', 's9', 's10', 
+                 'inx500', 'inx700', 'inx1030', 'twg', 'euxhcp', 'in56', 'ds', 'ht15',
+                 'inap'].some(k => m.includes(k))) return 'CPAP';
+            
+            // BiPAP
+            if (['astral', 'stellar', 
+                 'trilogy', 'in2100', 'in2200', 'v60', 'a30', 'a40', '1054096', '1040000'].some(k => m.includes(k))) return 'BiPAP';
+            
+            // PSG
+            if (['apnealink',
+                 'alice', 'sleepware', 'm5525', 'p5514', 'p5512', '1078758'].some(k => m.includes(k))) return 'PSG';
+                 
+            // 氧氣機
+            if (['everflo', 'oc505', '安心氧'].some(k => m.includes(k))) return '氧氣機';
+            
+            // 軟體
+            if (['care orchestrator', 'encore'].some(k => m.includes(k))) return '軟體';
+            
+            return '其他設備';
         };
 
         cases.forEach(c => {
@@ -178,6 +215,24 @@ export function useKpiData() {
                 strat.categories[cat].points += c.points || 0;
                 strat.categories[cat].revenue += c.revenue || 0;
                 strat.categories[cat].extCost += c.extCost || 0;
+                
+                if (!strat.categories[cat].brands) {
+                    strat.categories[cat].brands = {};
+                }
+                const brand = getBrand(c.model);
+                strat.categories[cat].brands[brand] = (strat.categories[cat].brands[brand] || 0) + 1;
+
+                if (!strat.categories[cat].deviceTypes) {
+                    strat.categories[cat].deviceTypes = {};
+                }
+                const dt = getDeviceType(c.model);
+                strat.categories[cat].deviceTypes[dt] = (strat.categories[cat].deviceTypes[dt] || 0) + 1;
+
+                if (!strat.categories[cat].subTypes) {
+                    strat.categories[cat].subTypes = {};
+                }
+                const mappedT = mapType(c.type);
+                strat.categories[cat].subTypes[mappedT] = (strat.categories[cat].subTypes[mappedT] || 0) + 1;
             }
 
             if (c.warranty) {
@@ -199,17 +254,21 @@ export function useKpiData() {
                     strat.warAssetClass[assetClass].salesPersons[sp] = (strat.warAssetClass[assetClass].salesPersons[sp] || 0) + 1;
 
                     const mappedT = mapType(c.type);
-                    if (mappedT === '一般維修' || mappedT === '困難維修' || mappedT === '外修判定') {
+                    if (mappedT === '一般維修' || mappedT === '困難維修' || mappedT === '外修判定' || mappedT === '簡易檢測') {
                         strat.warRepairTotal++;
                         if (strat.warRepairTypes[mappedT] !== undefined) {
                             strat.warRepairTypes[mappedT]++;
                         }
                         const brand = getBrand(c.model);
                         strat.warRepairBrands[brand] = (strat.warRepairBrands[brand] || 0) + 1;
+                        
+                        const dt = getDeviceType(c.model);
+                        strat.warRepairDeviceTypes = strat.warRepairDeviceTypes || {};
+                        strat.warRepairDeviceTypes[dt] = (strat.warRepairDeviceTypes[dt] || 0) + 1;
                     }
                 }
             }
-            if (c.tat > 5) strat.tatOutliers++;
+            if (c.tat > getSlaTarget(mt)) strat.tatOutliers++;
             strat.totalPending += (c.pendingDays || 0);
             strat.totalBacklog += (c.backlogDays || 0);
             strat.totalConst += (c.constDays || 0);
