@@ -139,7 +139,7 @@ export function useKpiData() {
             if (['airmini', 'airsense', 'aircurve', 'lumis', 's9', 's10', 'astral', 'stellar', 'apnealink'].some(k => m.includes(k))) return 'ResMed';
             
             // CPAP & BiPAP & PSG & 氧氣機 & 軟體 - Philips
-            if (['inx500', 'inx700', 'inx1030', 'twg', 'euxhcp', 'in56', 'ds', 'ht15', // CPAP
+            if (['inx500', 'inx700', 'inx900', 'inx1030', 'twg', 'euxhcp', 'in56', 'ds', 'ht15', // CPAP
                  'trilogy', 'in2100', 'in2200', 'v60', 'a30', 'a40', '1054096', '1040000', // BiPAP
                  'alice', 'sleepware', 'm5525', 'p5514', 'p5512', '1078758', // PSG
                  'everflo', // 氧氣機
@@ -163,7 +163,7 @@ export function useKpiData() {
             
             // CPAP
             if (['airmini', 'airsense', 'aircurve', 'lumis', 's9', 's10', 
-                 'inx500', 'inx700', 'inx1030', 'twg', 'euxhcp', 'in56', 'ds', 'ht15',
+                 'inx500', 'inx700', 'inx900', 'inx1030', 'twg', 'euxhcp', 'in56', 'ds', 'ht15',
                  'inap'].some(k => m.includes(k))) return 'CPAP';
             
             // BiPAP
