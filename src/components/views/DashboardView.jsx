@@ -11,6 +11,7 @@ import ComparativeAnalytics from "../cards/ComparativeAnalytics";
 import { TICKET_CATEGORIES } from "../../utils/calculations";
 import { resetThresholds, saveThresholds } from "../../utils/anomalyConfig";
 import { AssetAlertTables } from "../cards/AssetAlertTables";
+import AnomalySection from "./AnomalySection";
 
 export default function DashboardView({
   dateRange,
@@ -41,6 +42,7 @@ export default function DashboardView({
   openAssetClassModal,
   openSectorModal,
   openCustomerModal,
+  openAnomalyModal,
   openDeepAnalysis,
   subFilterModels,
   setSubFilterModels,
@@ -60,6 +62,7 @@ export default function DashboardView({
   onDimReq,
 }) {
   const [showAnomalyConfig, setShowAnomalyConfig] = useState(false);
+  const [expandedAnomalies, setExpandedAnomalies] = useState(new Set());
 
   // Helper function to toggle filters inside the deep analysis section
   const toggleFilter = (setter, value) => {
@@ -885,240 +888,15 @@ export default function DashboardView({
       )}
 
       {/* ⚠️ 異常趨勢偵測區塊 */}
-      {sectorAnomalies && sectorAnomalies.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-              flexWrap: "wrap",
-              gap: 8,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "1.1rem",
-                  fontWeight: 800,
-                  color: "var(--color-text)",
-                }}
-              >
-                ⚠️ 異常趨勢偵測
-              </h3>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--color-text-secondary)",
-                  fontWeight: 600,
-                }}
-              >
-                {
-                  sectorAnomalies.filter((a) => !dismissedAnomalies.has(a.id))
-                    .length
-                }{" "}
-                個待處理
-              </span>
-              {dismissedAnomalies.size > 0 && (
-                <button
-                  onClick={resetDismissed}
-                  style={{
-                    padding: "2px 8px",
-                    borderRadius: 4,
-                    fontSize: "0.68rem",
-                    fontWeight: 600,
-                    background: "var(--color-surface-alt)",
-                    color: "var(--color-text-secondary)",
-                    border: "1px solid var(--color-border)",
-                    cursor: "pointer",
-                  }}
-                >
-                  重設已讀
-                </button>
-              )}
-            </div>
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setShowAnomalyConfig((prev) => !prev)}
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 8,
-                  fontSize: "0.78rem",
-                  fontWeight: 700,
-                  background: showAnomalyConfig
-                    ? "var(--color-primary)"
-                    : "var(--color-surface-alt)",
-                  color: showAnomalyConfig
-                    ? "white"
-                    : "var(--color-text-secondary)",
-                  border: "1px solid var(--color-border)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  transition: "all 0.15s",
-                }}
-              >
-                ⚙️ 閾值設定
-              </button>
-              {showAnomalyConfig && (
-                <div
-                  className="anomaly-config-panel"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "0.85rem",
-                        color: "var(--color-text)",
-                      }}
-                    >
-                      ⚙️ 異常偵測閾值設定
-                    </div>
-                    <button
-                      onClick={() => {
-                        const defaults = resetThresholds();
-                        updateAnomalyThresholds({ ...defaults });
-                      }}
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        fontSize: "0.68rem",
-                        fontWeight: 600,
-                        background: "rgba(239, 68, 68, 0.08)",
-                        color: "#dc2626",
-                        border: "1px solid rgba(239, 68, 68, 0.2)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      重設預設值
-                    </button>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "0.7rem",
-                      color: "var(--color-text-secondary)",
-                      marginBottom: 8,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    修改後會即時生效並存入瀏覽器。不同裝置的設定會獨立保存。
-                  </div>
-                  {Object.entries(anomalyThresholds).map(([ruleKey, rule]) => {
-                    const numericFields = Object.entries(rule).filter(
-                      ([k, v]) => typeof v === "number",
-                    );
-                    if (numericFields.length === 0) return null;
-                    return (
-                      <div key={ruleKey} style={{ marginBottom: 10 }}>
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            fontWeight: 700,
-                            color: "var(--color-text)",
-                            marginBottom: 4,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
-                          <span>{rule.icon || "📌"}</span>
-                          <span>{rule.label || ruleKey}</span>
-                        </div>
-                        {numericFields.map(([field, value]) => {
-                          const fieldLabels = {
-                            minCount: "最少件數",
-                            minPct: "最低佔比(%)",
-                            minPctIncrease: "增幅(%)",
-                            minAbsDelta: "增加件數",
-                            remainDays: "剩餘天數",
-                            minPerSN: "每SN次數",
-                            minGroups: "最少組數",
-                          };
-                          return (
-                            <div key={field} className="anomaly-config-row">
-                              <label>{fieldLabels[field] || field}</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={value}
-                                onChange={(e) => {
-                                  const v = parseFloat(e.target.value) || 0;
-                                  const next = {
-                                    ...anomalyThresholds,
-                                    [ruleKey]: {
-                                      ...anomalyThresholds[ruleKey],
-                                      [field]: v,
-                                    },
-                                  };
-                                  updateAnomalyThresholds(next);
-                                  saveThresholds(next);
-                                }}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="anomaly-strip">
-            {sectorAnomalies.map((a) => {
-              const isDismissed = dismissedAnomalies.has(a.id);
-              return (
-                <div
-                  key={a.id}
-                  className={`anomaly-badge anomaly-badge--${a.severity} ${isDismissed ? "anomaly-badge--dismissed" : ""}`}
-                  onClick={() => {
-                    if (a.relatedCases && a.relatedCases.length > 0) {
-                      // Handled strictly by passing open details props - wait, does this specific click need modifying?
-                      // In the previous App.jsx, this opens the modal by directly calling setModal.
-                      // Wait, I need a callback for this! The original App.jsx did:
-                      // setModal({ open: true, title: a.title, ... })
-                      // I need to proxy this out to top level! Or maybe I add a callback to App.jsx: openAnomalyModal.
-                    }
-                  }}
-                  title={`${a.description}（點擊查看明細）`}
-                >
-                  <span
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {a.title}
-                  </span>
-                  <button
-                    className="anomaly-dismiss-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      isDismissed ? resetDismissed() : dismissAnomaly(a.id);
-                    }}
-                    title={isDismissed ? "取消已讀" : "標記為已讀"}
-                  >
-                    {isDismissed ? "↺" : "✕"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <AnomalySection
+        sectorAnomalies={sectorAnomalies}
+        dismissedAnomalies={dismissedAnomalies}
+        dismissAnomaly={dismissAnomaly}
+        resetDismissed={resetDismissed}
+        anomalyThresholds={anomalyThresholds}
+        updateAnomalyThresholds={updateAnomalyThresholds}
+        openAnomalyModal={openAnomalyModal}
+      />
 
       {/* Operational KPIs with Sparklines */}
       <div

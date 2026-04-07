@@ -240,6 +240,39 @@ export default function App() {
     [displayCases],
   );
 
+  const openAnomalyModal = useCallback((anomaly) => {
+    const cases = (anomaly.relatedCases || []).sort(
+      (a, b) => (b.date || 0) - (a.date || 0),
+    );
+    const m = anomaly.metrics || {};
+    const analysisLines = [];
+    analysisLines.push(`<strong>📊 異常數據摘要：</strong><br>`);
+    if (m.current !== undefined && m.total !== undefined) {
+      analysisLines.push(`1. 異常值 <strong style="color:#0ea5e9">${m.current}</strong> / 總量 <strong>${m.total}</strong>`);
+      if (m.percentage !== undefined) analysisLines.push(`（佔比 <strong>${m.percentage}%</strong>）`);
+      analysisLines.push(`<br>`);
+    }
+    if (m.previous !== undefined) {
+      analysisLines.push(`2. 上期對照：<strong>${m.previous}</strong> 件 → 本期 <strong>${m.current}</strong> 件（`);
+      analysisLines.push(`<strong style="color:${m.delta > 0 ? '#dc2626' : '#059669'}">${m.delta > 0 ? '+' : ''}${m.delta}</strong> 件，`);
+      analysisLines.push(`<strong>${m.deltaPercent > 0 ? '+' : ''}${m.deltaPercent}%</strong>）<br>`);
+    }
+    if (m.avgTat !== undefined) {
+      analysisLines.push(`${m.previous !== undefined ? '3' : '2'}. 平均處理時效 <strong style="color:#d97706">${m.avgTat}</strong> 工作日<br>`);
+    }
+    if (m.insight) {
+      analysisLines.push(`<br><div style="padding:10px 12px; border-radius:8px; background:rgba(245, 158, 11, 0.06); border:1px dashed rgba(245, 158, 11, 0.3); color:#92400e; font-size:0.88rem; line-height:1.5;">`);
+      analysisLines.push(`<strong>💡 建議：</strong>${m.insight}</div>`);
+    }
+    setModal({
+      open: true,
+      title: anomaly.title,
+      cases,
+      analysis: analysisLines.join(''),
+      isSla: anomaly.type === 'slaOverrun' || anomaly.type === 'slaNearMiss',
+    });
+  }, []);
+
   const openDeepAnalysis = useCallback(
     (chartType, label) => {
       const subCases = displayCases.filter((c) => {
@@ -818,6 +851,7 @@ export default function App() {
               openAssetClassModal={openAssetClassModal}
               openSectorModal={openSectorModal}
               openCustomerModal={openCustomerModal}
+              openAnomalyModal={openAnomalyModal}
               openDeepAnalysis={openDeepAnalysis}
               subFilterModels={subFilterModels}
               setSubFilterModels={setSubFilterModels}

@@ -149,6 +149,11 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
     for (const [model, count] of Object.entries(models)) {
       const pct = repairTotal > 0 ? (count / repairTotal) * 100 : 0;
       if (count >= T.modelSurge.minCount && pct >= T.modelSurge.minPct) {
+        // Build top-5 model breakdown for chart
+        const modelBreakdown = Object.entries(models)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([m, cnt]) => ({ label: m, value: cnt, highlight: m === model }));
         anomalies.push({
           id: makeAnomalyId(dateRange, 'modelSurge', model),
           type: 'modelSurge',
@@ -157,6 +162,14 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
           title: `🔥 ${model} 報修暴增`,
           description: `本期 ${count} 件，佔維修板塊 ${pct.toFixed(1)}%`,
           relatedCases: modelCasesBySector[TICKET_CATEGORIES.REPAIR]?.[model] || [],
+          metrics: {
+            current: count,
+            total: repairTotal,
+            percentage: parseFloat(pct.toFixed(1)),
+            threshold: T.modelSurge.minPct,
+            breakdown: modelBreakdown,
+            insight: `此機型報修數量達 ${count} 件，佔維修板塊整體 ${pct.toFixed(1)}%。建議檢查該機型是否需召回或批量更換零件。`,
+          },
         });
       }
     }
@@ -175,6 +188,17 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
           title: `🚨 業務 ${sp} 連續投訴`,
           description: `保固/投訴案件 ${data.warranty} 件（佔其 ${data.total} 件的 ${warPct.toFixed(0)}%）`,
           relatedCases: data.cases,
+          metrics: {
+            current: data.warranty,
+            total: data.total,
+            percentage: parseFloat(warPct.toFixed(1)),
+            threshold: T.salesComplaint.minPct,
+            breakdown: [
+              { label: '保固/投訴', value: data.warranty, highlight: true },
+              { label: '其他案件', value: data.total - data.warranty, highlight: false },
+            ],
+            insight: `業務 ${sp} 的保固案件佔比高達 ${warPct.toFixed(0)}%，共 ${data.warranty} 件，應優先查看是否為產品問題或客戶溝通不良。`,
+          },
         });
       }
     }
@@ -195,6 +219,18 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
           title: `📈 ${sector} 案量突增`,
           description: `本期 ${cur} 件，較上期 ${prev} 件增加 ${pctIncrease.toFixed(0)}%（+${absDelta} 件）`,
           relatedCases: currentCases.filter(c => getCategory(mapType(c.type)) === sector),
+          metrics: {
+            current: cur,
+            previous: prev,
+            delta: absDelta,
+            deltaPercent: parseFloat(pctIncrease.toFixed(1)),
+            threshold: T.sectorVolume.minPctIncrease,
+            breakdown: [
+              { label: '上期', value: prev, highlight: false },
+              { label: '本期', value: cur, highlight: true },
+            ],
+            insight: `${sector} 板塊本期案量較上期成長 ${pctIncrease.toFixed(0)}%（+${absDelta} 件），需評估是否為季節性波動或異常趨勢。`,
+          },
         });
       }
     }
@@ -205,6 +241,10 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
     for (const [sector, data] of Object.entries(slaOverBySector)) {
       const overPct = data.total > 0 ? (data.over / data.total) * 100 : 0;
       if (overPct >= T.slaOverrun.minPct && data.over >= T.slaOverrun.minCount) {
+        // Calculate average TAT of overrun cases
+        const avgOverTat = data.cases.length > 0
+          ? (data.cases.reduce((s, c) => s + c.tat, 0) / data.cases.length).toFixed(1)
+          : 0;
         anomalies.push({
           id: makeAnomalyId(dateRange, 'slaOverrun', sector),
           type: 'slaOverrun',
@@ -213,6 +253,18 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
           title: `⏳ ${sector} SLA 集中超標`,
           description: `超標 ${data.over} 件（${overPct.toFixed(1)}%），共 ${data.total} 件`,
           relatedCases: data.cases,
+          metrics: {
+            current: data.over,
+            total: data.total,
+            percentage: parseFloat(overPct.toFixed(1)),
+            threshold: T.slaOverrun.minPct,
+            avgTat: parseFloat(avgOverTat),
+            breakdown: [
+              { label: '已超標', value: data.over, highlight: true },
+              { label: '未超標', value: data.total - data.over, highlight: false },
+            ],
+            insight: `${sector} 板塊有 ${overPct.toFixed(1)}% 的案件超出 SLA 時效，超標案件平均 TAT 為 ${avgOverTat} 工作日。建議檢視瓶頸工序。`,
+          },
         });
       }
     }
@@ -222,6 +274,16 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
   if (T.slaNearMiss) {
     for (const [sector, data] of Object.entries(slaNearMissBySector)) {
       if (data.count >= T.slaNearMiss.minCount) {
+        // Build remaining-days distribution for near-miss cases
+        const daysBuckets = {};
+        data.cases.forEach(c => {
+          const remain = getSlaTarget(mapType(c.type)) - c.tat;
+          const key = `${remain}天`;
+          daysBuckets[key] = (daysBuckets[key] || 0) + 1;
+        });
+        const nearMissBreakdown = Object.entries(daysBuckets)
+          .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
+          .map(([label, value]) => ({ label, value, highlight: label === '0天' }));
         anomalies.push({
           id: makeAnomalyId(dateRange, 'slaNearMiss', sector),
           type: 'slaNearMiss',
@@ -230,6 +292,14 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
           title: `⚡ ${sector} SLA 瀕臨預警`,
           description: `${data.count} 件案件剩餘工作天數 ≤ ${T.slaNearMiss.remainDays} 天（使用工作日曆計算，已排除週末與國定假日）`,
           relatedCases: data.cases,
+          metrics: {
+            current: data.count,
+            total: slaOverBySector[sector]?.total || 0,
+            percentage: slaOverBySector[sector]?.total > 0 ? parseFloat(((data.count / slaOverBySector[sector].total) * 100).toFixed(1)) : 0,
+            remainDays: T.slaNearMiss.remainDays,
+            breakdown: nearMissBreakdown,
+            insight: `${data.count} 件案件即將超出 SLA 時效（剩餘 ≤ ${T.slaNearMiss.remainDays} 工作日），需立即優先處理以避免超標。`,
+          },
         });
       }
     }
@@ -241,6 +311,10 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
     if (repeatedSNs.length >= T.repeatSN.minGroups) {
       const allRepeatedCases = repeatedSNs.flatMap(([, cases]) => cases);
       const snList = repeatedSNs.slice(0, 5).map(([sn, cases]) => `${sn}(${cases.length}次)`).join('、');
+      const snBreakdown = repeatedSNs
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, 6)
+        .map(([sn, cases]) => ({ label: sn.length > 10 ? sn.slice(-8) : sn, value: cases.length, highlight: cases.length >= 3, fullSN: sn }));
       anomalies.push({
         id: makeAnomalyId(dateRange, 'repeatSN', `${repeatedSNs.length}groups`),
         type: 'repeatSN',
@@ -249,6 +323,13 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
         title: `🔁 ${repeatedSNs.length} 組序號重複進場`,
         description: `包含：${snList}${repeatedSNs.length > 5 ? ` 等 ${repeatedSNs.length} 組` : ''}`,
         relatedCases: allRepeatedCases,
+        metrics: {
+          current: repeatedSNs.length,
+          total: Object.keys(snCounts).length,
+          totalCases: allRepeatedCases.length,
+          breakdown: snBreakdown,
+          insight: `${repeatedSNs.length} 組序號於當期重複進場維修，涉及 ${allRepeatedCases.length} 件案件。可能存在未根治故障或零件品質問題。`,
+        },
       });
     }
   }
@@ -258,6 +339,15 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
     for (const [client, data] of Object.entries(customerCases)) {
       if (data.count >= T.customerFreq.minCount) {
         const sectorList = [...data.sectors].join('、');
+        // Calculate avg TAT for this customer
+        const custAvgTat = data.cases.length > 0
+          ? (data.cases.reduce((s, c) => s + c.tat, 0) / data.cases.length).toFixed(1)
+          : 0;
+        const custSectorBreakdown = [...data.sectors].map(s => ({
+          label: s,
+          value: data.cases.filter(c => getCategory(mapType(c.type)) === s).length,
+          highlight: false,
+        }));
         anomalies.push({
           id: makeAnomalyId(dateRange, 'customerFreq', client),
           type: 'customerFreq',
@@ -266,6 +356,14 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
           title: `💰 客戶「${client}」高頻叫修`,
           description: `當期叫修 ${data.count} 件，涵蓋板塊：${sectorList}`,
           relatedCases: data.cases,
+          metrics: {
+            current: data.count,
+            total: currentCases.length,
+            percentage: parseFloat(((data.count / currentCases.length) * 100).toFixed(1)),
+            avgTat: parseFloat(custAvgTat),
+            breakdown: custSectorBreakdown,
+            insight: `客戶「${client}」本期共叫修 ${data.count} 件，平均 TAT ${custAvgTat} 工作日，橫跨 ${data.sectors.size} 個板塊，建議安排專案管理或簽訂服務合約。`,
+          },
         });
       }
     }
@@ -277,6 +375,10 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
     for (const [eng, count] of Object.entries(engineerCounts)) {
       const pct = totalEng > 0 ? (count / totalEng) * 100 : 0;
       if (pct >= T.engineerImbalance.minPct && count >= T.engineerImbalance.minCount) {
+        const engBreakdown = Object.entries(engineerCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([e, cnt]) => ({ label: e, value: cnt, highlight: e === eng }));
         anomalies.push({
           id: makeAnomalyId(dateRange, 'engineerImbalance', eng),
           type: 'engineerImbalance',
@@ -285,6 +387,14 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
           title: `👷 工程師 ${eng} 案量失衡`,
           description: `負責 ${count} 件（佔全部 ${totalEng} 件的 ${pct.toFixed(1)}%）`,
           relatedCases: currentCases.filter(c => c.engineer === eng),
+          metrics: {
+            current: count,
+            total: totalEng,
+            percentage: parseFloat(pct.toFixed(1)),
+            threshold: T.engineerImbalance.minPct,
+            breakdown: engBreakdown,
+            insight: `工程師 ${eng} 當期負擔 ${pct.toFixed(1)}% 的案量（${count}/${totalEng}），工作分配偏斜嚴重，建議重新調配人力。`,
+          },
         });
       }
     }
@@ -296,6 +406,10 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
       const pct = (count / totalPartsUsage) * 100;
       if (count >= T.partsAnomaly.minCount && pct >= T.partsAnomaly.minPct) {
         const partName = key.split('||')[1] || key;
+        const partsBreakdown = Object.entries(partsCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([k, cnt]) => ({ label: k.split('||')[1] || k, value: cnt, highlight: k === key }));
         anomalies.push({
           id: makeAnomalyId(dateRange, 'partsAnomaly', partName),
           type: 'partsAnomaly',
@@ -306,6 +420,14 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
           relatedCases: currentCases.filter(c =>
             c.parts && c.parts.some(p => `${p.no || ''}||${p.name}` === key)
           ),
+          metrics: {
+            current: count,
+            total: totalPartsUsage,
+            percentage: parseFloat(pct.toFixed(1)),
+            threshold: T.partsAnomaly.minPct,
+            breakdown: partsBreakdown,
+            insight: `零件「${partName}」使用量佔總零件用量 ${pct.toFixed(1)}%（${count}/${totalPartsUsage}），偏高集中，建議確認庫存水位並評估是否為常態需求。`,
+          },
         });
       }
     }
