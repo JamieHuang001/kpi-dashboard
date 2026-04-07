@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { markdownToSafeHtml } from '../../utils/sanitize';
 
 const TrendIndicator = ({ value, label, isReverseGood = false }) => {
     if (value === undefined || value === null) return null;
@@ -116,7 +117,7 @@ export default function ComparativeAnalytics({ historicalStats }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {insights.map((insight, idx) => (
                         <div key={idx} style={{ fontSize: '0.85rem', lineHeight: 1.5, color: 'var(--color-text)', display: 'flex', gap: 8 }}>
-                            <div dangerouslySetInnerHTML={{ __html: insight.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                            <div dangerouslySetInnerHTML={{ __html: markdownToSafeHtml(insight) }} />
                         </div>
                     ))}
                 </div>

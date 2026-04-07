@@ -1,3 +1,5 @@
+import { APP_VERSION_DISPLAY } from '../../config/version';
+
 export default function TopFilterBar({
     dateRange, onDateChange, targetPoints, onTargetChange,
     encoding, onEncodingChange, onFileUpload, status,
@@ -133,18 +135,7 @@ export default function TopFilterBar({
                     </button>
                 )}
 
-                {/* Status */}
-                {status && (
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-primary-light)', opacity: 0.8 }}>v5.4.0</div>
-                        {status}
-                    </div>
-                )}
-                {assetStatus && (
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
-                        {assetStatus}
-                    </div>
-                )}
+                {/* Status displays removed - handled by ErrorNotification in App.jsx */}
             </div>
 
             {/* Row 2: Point Config (collapsible) */}

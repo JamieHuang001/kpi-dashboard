@@ -1,10 +1,11 @@
-import { useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
     Chart as ChartJS, LinearScale, PointElement, Tooltip, Legend
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Scatter } from 'react-chartjs-2';
-import { exportToPNG } from '../../utils/exportHelpers';
+import ChartContainer from '../common/ChartContainer';
+import EmptyState from '../common/EmptyState';
 
 ChartJS.register(LinearScale, PointElement, Tooltip, Legend, ChartDataLabels);
 
@@ -13,8 +14,6 @@ ChartJS.register(LinearScale, PointElement, Tooltip, Legend, ChartDataLabels);
  * X = 案量, Y = 均TAT, 點大小 = 返修率
  */
 export default function EngineerScatter({ engStats }) {
-    const wrapperRef = useRef(null);
-
     const chartConfig = useMemo(() => {
         if (!engStats || engStats.length === 0) return null;
 
@@ -109,20 +108,18 @@ export default function EngineerScatter({ engStats }) {
         };
     }, [engStats]);
 
-    if (!chartConfig) return null;
+    if (!chartConfig) {
+        return <EmptyState icon="🎯" title="尚無工程師資料" description="載入工單資料後即可顯示效率矩陣" />;
+    }
 
     return (
-        <div ref={wrapperRef} className="card" style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>🎯 工程師效率矩陣</h3>
-                    <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
-                        X=案量 · Y=均TAT · 圓圈大小=返修率
-                    </p>
-                </div>
-                <button className="btn btn-sm" onClick={() => exportToPNG(wrapperRef.current, 'engineer_matrix.png')}>📥 PNG</button>
-            </div>
-
+        <ChartContainer
+            title="🎯 工程師效率矩陣"
+            subtitle="X=案量 · Y=均TAT · 圓圈大小=返修率"
+            exportFilename="engineer_matrix.png"
+            style={{ marginBottom: 24 }}
+            headerStyle={{ marginBottom: 12 }}
+        >
             <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
                 <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: 'rgba(16,185,129,0.7)', marginRight: 4 }}></span>TAT ≤3天</span>
                 <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: 'rgba(245,158,11,0.7)', marginRight: 4 }}></span>3~5天</span>
@@ -141,6 +138,6 @@ export default function EngineerScatter({ engStats }) {
                     ⚠️ <strong>量少+TAT高</strong> = 需關注（左上）
                 </div>
             </div>
-        </div>
+        </ChartContainer>
     );
 }

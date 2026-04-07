@@ -1,4 +1,6 @@
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('GEMINI_API_KEY') || '';
+import { STORAGE_KEYS } from '../config/storageKeys';
+
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem(STORAGE_KEYS.GEMINI_API_KEY) || '';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
 
 /**
@@ -54,6 +56,32 @@ export async function generateGeminiResponse(prompt, isJson = false) {
         return text;
     } catch (err) {
         console.error("Gemini API Request failed:", err);
+        throw err;
+    }
+}
+
+/**
+ * 多輪對話模式 — 傳入完整的 Gemini contents 歷史陣列
+ * @param {Array} contents - Gemini API contents 格式的對話歷史
+ * @returns {Promise<string|null>} AI 回覆文字，若無有效回應則回傳 null
+ */
+export async function generateGeminiChat(contents) {
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`API Error ${response.status}: ${errorData?.error?.message || 'Unknown'}`);
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    } catch (err) {
+        console.error("Gemini Chat API request failed:", err);
         throw err;
     }
 }

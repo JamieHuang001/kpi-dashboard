@@ -1,14 +1,13 @@
-import { useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
-import { exportToPNG } from '../../utils/exportHelpers';
+import ChartContainer from '../common/ChartContainer';
+import EmptyState from '../common/EmptyState';
 
 /**
  * 零件成本加權排行榜
  * 以 數量×單價=總成本 排序，單一橫向長條圖
  */
 export default function CostWeightedParts({ costWeightedParts }) {
-    const wrapperRef = useRef(null);
-
     const { labels, data, hasAnyCost, tooltipInfo } = useMemo(() => {
         if (!costWeightedParts || costWeightedParts.length === 0) {
             return { labels: [], data: [], hasAnyCost: false, tooltipInfo: [] };
@@ -33,23 +32,16 @@ export default function CostWeightedParts({ costWeightedParts }) {
         };
     }, [costWeightedParts]);
 
-    if (!costWeightedParts || costWeightedParts.length === 0) return null;
+    if (!costWeightedParts || costWeightedParts.length === 0) {
+        return <EmptyState icon="💲" title="尚無零件成本資料" description="載入工單資料後即可顯示成本排行" />;
+    }
 
     return (
-        <div ref={wrapperRef}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div>
-                    <h4 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                        {hasAnyCost ? '💲 零件成本影響排行 (數量×單價)' : 'Top 10 消耗零件排行'}
-                    </h4>
-                    {hasAnyCost && (
-                        <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
-                            長條=估計總成本 · Hover 查看明細
-                        </p>
-                    )}
-                </div>
-                <button className="btn btn-sm" onClick={() => exportToPNG(wrapperRef.current, 'parts_cost_ranking.png')}>📥 PNG</button>
-            </div>
+        <ChartContainer
+            title={hasAnyCost ? '💲 零件成本影響排行 (數量×單價)' : 'Top 10 消耗零件排行'}
+            subtitle={hasAnyCost ? '長條=估計總成本 · Hover 查看明細' : undefined}
+            exportFilename="parts_cost_ranking.png"
+        >
             <div style={{ height: 300 }}>
                 <Bar
                     data={{
@@ -127,6 +119,6 @@ export default function CostWeightedParts({ costWeightedParts }) {
                     })}
                 </div>
             )}
-        </div>
+        </ChartContainer>
     );
 }

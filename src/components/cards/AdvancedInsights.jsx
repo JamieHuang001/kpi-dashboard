@@ -1,11 +1,11 @@
 import { useState, useRef, memo } from 'react';
-import { SLA_TIERS } from '../../utils/calculations';
+import { SLA_TIERS, KpiConfig } from '../../utils/calculations';
 import { exportToPNG } from '../../utils/exportHelpers';
 
 /**
  * 進階 BI 分析面板 — 包含 10 項進階功能
  */
-const AdvancedInsights = memo(function AdvancedInsights({ stats, dataWarnings, anomalies, monthlyTrends, openDeepAnalysis }) {
+const AdvancedInsights = memo(function AdvancedInsights({ stats, dataWarnings, monthlyTrends, openDeepAnalysis }) {
     const pdfRef = useRef(null);
     const [showAllMods, setShowAllMods] = useState({});
     if (!stats) return null;
@@ -40,17 +40,7 @@ const AdvancedInsights = memo(function AdvancedInsights({ stats, dataWarnings, a
                 </div>
             )}
 
-            {/* Anomaly Alerts */}
-            {anomalies && anomalies.length > 0 && (
-                <div className="card" style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                    <h4 style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#dc2626' }}>🚨 趨勢異常偵測</h4>
-                    {anomalies.map((a, i) => (
-                        <div key={i} style={{ fontSize: '0.82rem', padding: '3px 0', color: 'var(--color-text)' }}>
-                            {a.type === 'surge' ? '📈' : '🔄'} {a.msg}
-                        </div>
-                    ))}
-                </div>
-            )}
+
 
             {/* Row 1: FTFR + Cost per Repair + Gini */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
@@ -176,7 +166,7 @@ const AdvancedInsights = memo(function AdvancedInsights({ stats, dataWarnings, a
                                 <tr key={r.type}>
                                     <td style={{ fontWeight: 600 }}>{r.type}</td>
                                     <td style={{ textAlign: 'center' }}>{r.count}</td>
-                                    <td style={{ textAlign: 'right', fontWeight: 700, color: r.avg > 5000 ? '#dc2626' : 'var(--color-text)' }}>NT${r.avg.toLocaleString()}</td>
+                                    <td style={{ textAlign: 'right', fontWeight: 700, color: r.avg > KpiConfig.costAlertThreshold ? '#dc2626' : 'var(--color-text)' }}>NT${r.avg.toLocaleString()}</td>
                                     <td style={{ textAlign: 'right', color: 'var(--color-text-secondary)' }}>NT${r.total.toLocaleString()}</td>
                                 </tr>
                             ))}
@@ -228,7 +218,7 @@ const AdvancedInsights = memo(function AdvancedInsights({ stats, dataWarnings, a
             <div className="card" style={{ marginBottom: 16 }}>
                 <h4 style={{ margin: '0 0 4px', fontSize: '0.9rem', fontWeight: 700 }}>📦 零件周轉率與安全庫存建議</h4>
                 <p style={{ margin: '0 0 10px', fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
-                    統計區間: {monthSpan.toFixed(1)} 個月 · 安全庫存 = 月均消耗 × 1.5
+                    統計區間: {monthSpan.toFixed(1)} 個月 · 安全庫存 = 月均消耗 × {KpiConfig.safetyStockMultiplier}
                 </p>
                 <div style={{ overflowX: 'auto' }}>
                     <table className="data-table" style={{ fontSize: '0.8rem' }}>

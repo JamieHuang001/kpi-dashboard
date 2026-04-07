@@ -62,7 +62,19 @@ export const KpiConfig = {
             // 範例：2026 補班日
             "2026-02-28"
         ]
-    }
+    },
+
+    // 6. 散落各處的商業常量 — 統一集中管理
+    /** 勞動成本係數：每點折合 NT$ */
+    laborCostPerPoint: 1179,
+    /** 資料警告：TAT 超過此天數視為異常 */
+    tatAnomalyThreshold: 30,
+    /** 預設月責任點數 */
+    defaultTargetPoints: 150,
+    /** 成本標紅閾值 (NT$) */
+    costAlertThreshold: 5000,
+    /** 安全庫存倍率 = 月均消耗 × 此數值 */
+    safetyStockMultiplier: 1.5,
 };
 
 // ==========================================

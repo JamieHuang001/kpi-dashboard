@@ -1,16 +1,15 @@
-import { useRef, useEffect, useMemo, memo } from 'react';
+import { useMemo, memo } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { mapType, SERVICE_COLORS } from '../../utils/calculations';
 import { exportToPNG } from '../../utils/exportHelpers';
+import ChartContainer from '../common/ChartContainer';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend, ChartDataLabels);
 
 /* ===== Service Trend Bar Chart ===== */
 export const ServiceChart = memo(function ServiceChart({ cases, granularity, onBarClick }) {
-    const wrapperRef = useRef(null);
-
     const { labels, datasets } = useMemo(() => {
         if (!cases.length) return { labels: [], datasets: [] };
         const grouped = {};
@@ -41,11 +40,7 @@ export const ServiceChart = memo(function ServiceChart({ cases, granularity, onB
     }, [cases, granularity]);
 
     return (
-        <div ref={wrapperRef} style={{ position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <h4 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>維修服務量趨勢 (主控制器)</h4>
-                <button className="btn btn-sm" onClick={() => exportToPNG(wrapperRef.current, 'service_trend.png')}>📥 PNG</button>
-            </div>
+        <ChartContainer title="維修服務量趨勢 (主控制器)" exportFilename="service_trend.png">
             <div style={{ height: 300 }}>
                 <Bar data={{ labels, datasets }}
                     options={{
@@ -70,22 +65,17 @@ export const ServiceChart = memo(function ServiceChart({ cases, granularity, onB
                     }}
                 />
             </div>
-        </div>
+        </ChartContainer>
     );
 });
 
 /* ===== Parts Horizontal Bar Chart ===== */
 export const PartsChart = memo(function PartsChart({ sortedParts }) {
-    const wrapperRef = useRef(null);
     const labels = sortedParts.map(i => i[0].split('||')[1]?.split(',')[0].trim().substring(0, 18) || '-');
     const data = sortedParts.map(i => i[1]);
 
     return (
-        <div ref={wrapperRef}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <h4 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>Top 10 消耗零件排行</h4>
-                <button className="btn btn-sm" onClick={() => exportToPNG(wrapperRef.current, 'parts_ranking.png')}>📥 PNG</button>
-            </div>
+        <ChartContainer title="Top 10 消耗零件排行" exportFilename="parts_ranking.png">
             <div style={{ height: 300 }}>
                 <Bar data={{
                     labels,
@@ -105,13 +95,13 @@ export const PartsChart = memo(function PartsChart({ sortedParts }) {
                     }}
                 />
             </div>
-        </div>
+        </ChartContainer>
     );
 });
 
 /* ===== Doughnut Chart (Reusable) ===== */
 export const DoughnutChart = memo(function DoughnutChart({ title, labels: chartLabels, data, colors, height = 220, onClick, bgColor }) {
-    const wrapperRef = useRef(null);
+    const wrapperRef = { current: null };
 
     const chartData = useMemo(() => ({
         labels: chartLabels,
@@ -149,19 +139,19 @@ export const DoughnutChart = memo(function DoughnutChart({ title, labels: chartL
     }), [chartLabels, onClick]);
 
     return (
-        <div ref={wrapperRef} style={{
-            background: bgColor || 'var(--color-surface)',
-            padding: 16, borderRadius: 'var(--radius)',
-            border: '1px solid var(--color-border)',
-        }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <h4 style={{ margin: 0, fontSize: '0.82rem', color: 'var(--color-text-secondary)', textAlign: 'center', flex: 1 }}>{title}</h4>
-                <button className="btn btn-sm" style={{ fontSize: '0.7rem', padding: '2px 6px' }}
-                    onClick={() => exportToPNG(wrapperRef.current, `${title}.png`)}>📥</button>
-            </div>
+        <ChartContainer
+            title={title}
+            exportFilename={`${title}.png`}
+            style={{
+                background: bgColor || 'var(--color-surface)',
+                padding: 16, borderRadius: 'var(--radius)',
+                border: '1px solid var(--color-border)',
+            }}
+            headerStyle={{ marginBottom: 8 }}
+        >
             <div style={{ height }}>
                 <Doughnut data={chartData} options={chartOptions} />
             </div>
-        </div>
+        </ChartContainer>
     );
 });

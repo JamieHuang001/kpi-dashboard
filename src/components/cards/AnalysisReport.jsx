@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { sanitizeHtml } from '../../utils/sanitize';
 
 const AnalysisReport = memo(function AnalysisReport({ stats }) {
     if (!stats) return null;
@@ -50,7 +51,7 @@ const AnalysisReport = memo(function AnalysisReport({ stats }) {
             {boxes.map(box => (
                 <div key={box.title} className="analysis-box" style={{ borderTop: `4px solid ${box.color}` }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: '1rem', fontWeight: 700, paddingBottom: 10, borderBottom: '1px solid var(--color-border)' }}>{box.title}</h4>
-                    <div style={{ fontSize: '0.88rem', lineHeight: 1.7, color: 'var(--color-text-secondary)' }} dangerouslySetInnerHTML={{ __html: box.html }} />
+                    <div style={{ fontSize: '0.88rem', lineHeight: 1.7, color: 'var(--color-text-secondary)' }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(box.html) }} />
                 </div>
             ))}
         </div>

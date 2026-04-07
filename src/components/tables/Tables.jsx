@@ -1,6 +1,7 @@
 import { useState, useMemo, memo } from 'react';
 import { getTatClass, getAchvClass } from '../../utils/calculations';
 import { exportToCSV } from '../../utils/exportHelpers';
+import Pagination from '../common/Pagination';
 
 /* ===== 工程師 KPI 表 ===== */
 const EngineerTable = memo(function EngineerTable({ engStats, targetPoints, onEngineerClick, coopScores = {}, onCoopChange }) {
@@ -115,17 +116,7 @@ const EngineerTable = memo(function EngineerTable({ engStats, targetPoints, onEn
                     </tbody>
                 </table>
             </div>
-            {totalPages > 1 && (
-                <div className="pagination" style={{ padding: '12px' }}>
-                    <button disabled={page === 0} onClick={() => setPage(0)}>«</button>
-                    <button disabled={page === 0} onClick={() => setPage(p => p - 1)}>‹</button>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', padding: '0 8px' }}>
-                        {page + 1} / {totalPages}
-                    </span>
-                    <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>›</button>
-                    <button disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
-                </div>
-            )}
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} style={{ padding: '12px' }} />
         </div>
     );
 });
@@ -192,15 +183,7 @@ const PartsTable = memo(function PartsTable({ sortedParts }) {
                     </tbody>
                 </table>
             </div>
-            {totalPages > 1 && (
-                <div className="pagination" style={{ padding: '12px' }}>
-                    <button disabled={page === 0} onClick={() => setPage(0)}>«</button>
-                    <button disabled={page === 0} onClick={() => setPage(p => p - 1)}>‹</button>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', padding: '0 8px' }}>{page + 1} / {totalPages}</span>
-                    <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>›</button>
-                    <button disabled={page >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
-                </div>
-            )}
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} style={{ padding: '12px' }} />
         </div>
     );
 });

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, memo } from 'react';
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem('GEMINI_API_KEY') || '';
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
+import { generateGeminiChat } from '../../utils/geminiApi';
+import { markdownToSafeHtml } from '../../utils/sanitize';
 
 const GeminiChat = memo(function GeminiChat({ stats, historicalStats, monthlyTrends }) {
     const [messages, setMessages] = useState([
@@ -69,18 +68,7 @@ const GeminiChat = memo(function GeminiChat({ stats, historicalStats, monthlyTre
             // Append the new user message
             geminiHistory.push({ role: 'user', parts: [{ text: userMsg }] });
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: geminiHistory })
-            });
-
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status}`);
-            }
-
-            const data = await response.json();
-            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "抱歉，我現在無法產生回應，請稍後再試。";
+            const reply = await generateGeminiChat(geminiHistory) || "抱歉，我現在無法產生回應，請稍後再試。";
 
             setMessages(prev => [...prev, { role: 'model', content: reply }]);
         } catch (error) {
@@ -98,14 +86,7 @@ const GeminiChat = memo(function GeminiChat({ stats, historicalStats, monthlyTre
         }
     };
 
-    // Simple markdown to HTML parser for basic formatting in chat bubbles
-    const parseMarkdown = (text) => {
-        let html = text
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/\n/g, '<br />');
-        return html;
-    };
+
 
     return (
         <div style={{
@@ -147,7 +128,7 @@ const GeminiChat = memo(function GeminiChat({ stats, historicalStats, monthlyTre
                                 border: isUser ? 'none' : '1px solid var(--color-border)',
                                 fontSize: '0.95rem', lineHeight: 1.6,
                                 boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
-                            }} dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.content) }} />
+                            }} dangerouslySetInnerHTML={{ __html: markdownToSafeHtml(msg.content) }} />
                         </div>
                     );
                 })}

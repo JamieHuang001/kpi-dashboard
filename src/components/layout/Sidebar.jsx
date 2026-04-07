@@ -1,11 +1,9 @@
 import { useTheme } from '../../hooks/useTheme';
+import { APP_VERSION_DISPLAY, APP_TITLE } from '../../config/version';
 
 const navItems = [
     { icon: '🤖', label: 'AI 對話助理', id: 'ai-chat' },
     { icon: '📊', label: '儀表板總覽', id: 'dashboard' },
-    { icon: '🏥', label: '設備監控', id: 'equipment' },
-    { icon: '✅', label: 'SOP 檢核', id: 'sop' },
-    { icon: '⚠️', label: '異常通報', id: 'risks' },
     { icon: '🗺️', label: '案件心智圖', id: 'mindmap' },
     { icon: '👷', label: '工程師績效', id: 'engineers' },
     { icon: '🔧', label: '零件消耗', id: 'parts' },
@@ -106,7 +104,7 @@ export default function Sidebar({ activeSection, onNavigate, isOpen, onClose }) 
                         </div>
                     </button>
                     <div style={{ textAlign: 'center', marginTop: 8, fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
-                        V5.9.0 BI Dashboard
+                        {APP_VERSION_DISPLAY} {APP_TITLE}
                     </div>
                 </div>
             </div>

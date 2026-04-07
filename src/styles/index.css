@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 /* ===== Custom Theme Variables ===== */
 :root {
   --color-primary: #0ea5e9;
@@ -1030,6 +1032,219 @@ body {
   font-weight: 500;
 }
 
+/* ===== Anomaly Trend Detection ===== */
+.anomaly-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+.anomaly-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  user-select: none;
+  max-width: 100%;
+}
+
+.anomaly-badge:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.anomaly-badge--critical {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  animation: pulse-critical 2s infinite;
+}
+
+.anomaly-badge--warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.anomaly-badge--info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1e40af;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.anomaly-badge--dismissed {
+  opacity: 0.35;
+  animation: none !important;
+  filter: grayscale(0.6);
+}
+
+.anomaly-badge--dismissed:hover {
+  opacity: 0.5;
+}
+
+.anomaly-dismiss-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+  font-size: 0.65rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 2px;
+  transition: background 0.15s;
+  line-height: 1;
+  padding: 0;
+}
+
+.anomaly-dismiss-btn:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.dark .anomaly-badge--critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.dark .anomaly-badge--warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.dark .anomaly-badge--info {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.dark .anomaly-dismiss-btn {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .anomaly-dismiss-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes pulse-critical {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Card-level anomaly indicator */
+.anomaly-card-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.anomaly-card-indicator--critical {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.anomaly-card-indicator--warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.anomaly-card-indicator--info {
+  background: rgba(59, 130, 246, 0.08);
+  color: #1e40af;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.anomaly-card-indicator:hover {
+  transform: scale(1.05);
+}
+
+/* Anomaly config panel (popover) */
+.anomaly-config-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  z-index: 80;
+  background: var(--color-surface);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  min-width: 320px;
+  max-width: 420px;
+  max-height: 70vh;
+  overflow-y: auto;
+  animation: fadeIn 0.15s ease;
+}
+
+.anomaly-config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.78rem;
+}
+
+.anomaly-config-row:last-child {
+  border-bottom: none;
+}
+
+.anomaly-config-row label {
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 0;
+}
+
+.anomaly-config-row input {
+  width: 56px;
+  padding: 4px 6px;
+  text-align: center;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  background: var(--color-surface-alt);
+  flex-shrink: 0;
+}
+
+.anomaly-config-row input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15);
+}
+
 /* ===== Responsive ===== */
 
 /* Tablet (769 - 1024px) */
@@ -1112,6 +1327,29 @@ body {
   .config-panel {
     max-width: 100%;
   }
+
+  .anomaly-strip {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .anomaly-badge {
+    font-size: 0.72rem;
+    padding: 5px 10px;
+  }
+
+  .anomaly-config-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin-top: 0;
+    min-width: auto;
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: 60vh;
+  }
 }
 
 /* Phone (≤ 480px) */
@@ -1192,6 +1430,23 @@ body {
 
   .customer-card {
     padding: 12px;
+  }
+
+  .anomaly-strip {
+    padding: 10px;
+    gap: 5px;
+  }
+
+  .anomaly-badge {
+    font-size: 0.68rem;
+    padding: 4px 8px;
+    gap: 4px;
+  }
+
+  .anomaly-dismiss-btn {
+    width: 16px;
+    height: 16px;
+    font-size: 0.6rem;
   }
 }
 
