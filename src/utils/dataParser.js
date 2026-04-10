@@ -126,8 +126,9 @@ export function processCSVText(text) {
         }
 
         let rawTat = 0;
-        if (dRecv && dFinish) {
-            rawTat = getWorkingDays(dRecv, dFinish);
+        let startTatDate = dFirst || dRecv;
+        if (startTatDate && dFinish) {
+            rawTat = getWorkingDays(startTatDate, dFinish);
         } else {
             rawTat = parseFloat(row[map.tat]) || 0;
         }

@@ -66,8 +66,8 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
       modelCasesBySector[cat][c.model].push(c);
     }
 
-    // --- #2 Sales person tracking (repair + maintenance) ---
-    if (cat === TICKET_CATEGORIES.REPAIR || cat === TICKET_CATEGORIES.MAINTENANCE) {
+    // --- #2 Sales person tracking (repair only) ---
+    if (cat === TICKET_CATEGORIES.REPAIR) {
       const sp = (c.salesPerson || '').trim() || '未指定';
       if (sp !== '未指定') {
         if (!salesPersonCases[sp]) salesPersonCases[sp] = { total: 0, warranty: 0, cases: [] };
@@ -79,21 +79,25 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
       }
     }
 
-    // --- #4 SLA overrun by sector ---
-    if (!slaOverBySector[cat]) slaOverBySector[cat] = { over: 0, total: 0, cases: [] };
-    slaOverBySector[cat].total++;
-    if (c.tat > slaTarget) {
-      slaOverBySector[cat].over++;
-      slaOverBySector[cat].cases.push(c);
+    // --- #4 SLA overrun by sector (repair only) ---
+    if (cat === TICKET_CATEGORIES.REPAIR) {
+      if (!slaOverBySector[cat]) slaOverBySector[cat] = { over: 0, total: 0, cases: [] };
+      slaOverBySector[cat].total++;
+      if (c.tat > slaTarget) {
+        slaOverBySector[cat].over++;
+        slaOverBySector[cat].cases.push(c);
+      }
     }
 
-    // --- #5 SLA near-miss by sector ---
+    // --- #5 SLA near-miss by sector (repair only) ---
     // 剩餘天數 = SLA 目標 - 已用天數（使用工作日計算，底層已排除週末/假日）
-    const remainDays = slaTarget - c.tat;
-    if (remainDays >= 0 && remainDays <= (T.slaNearMiss?.remainDays ?? 1)) {
-      if (!slaNearMissBySector[cat]) slaNearMissBySector[cat] = { count: 0, cases: [] };
-      slaNearMissBySector[cat].count++;
-      slaNearMissBySector[cat].cases.push(c);
+    if (cat === TICKET_CATEGORIES.REPAIR) {
+      const remainDays = slaTarget - c.tat;
+      if (remainDays >= 0 && remainDays <= (T.slaNearMiss?.remainDays ?? 1)) {
+        if (!slaNearMissBySector[cat]) slaNearMissBySector[cat] = { count: 0, cases: [] };
+        slaNearMissBySector[cat].count++;
+        slaNearMissBySector[cat].cases.push(c);
+      }
     }
 
     // --- #6 Repeat SN (repair only) ---
@@ -105,9 +109,9 @@ export function detectSectorAnomalies(currentCases, previousCases, dateRange, cu
       }
     }
 
-    // --- #7 Customer frequency ---
+    // --- #7 Customer frequency (repair only) ---
     const client = (c.client || '').trim();
-    if (client && client !== '未知') {
+    if (cat === TICKET_CATEGORIES.REPAIR && client && client !== '未知') {
       if (!customerCases[client]) customerCases[client] = { count: 0, cases: [], sectors: new Set() };
       customerCases[client].count++;
       customerCases[client].cases.push(c);
