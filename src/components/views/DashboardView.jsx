@@ -485,15 +485,16 @@ export default function DashboardView({
       {/* 獨立放大顯示的資產追蹤面板 (業務端可用 / 無帳設備) */}
       <AssetAlertTables assetData={assetData} />
 
-      {/* 業務板塊獨立分析 */}
+      {/* 業務板塊獨立分析 — 戰情室 2×2 大螢幕模式 */}
       {stats?.strat?.categories && (
         <div style={{ marginBottom: 24 }}>
           <h3
             style={{
               margin: "0 0 16px 0",
-              fontSize: "1.2rem",
+              fontSize: "1.3rem",
               fontWeight: 800,
               color: "var(--color-primary)",
+              letterSpacing: "0.5px",
             }}
           >
             📌 四大業務板塊分析
@@ -510,7 +511,7 @@ export default function DashboardView({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gridTemplateColumns: "repeat(2, 1fr)",
               gap: 16,
             }}
           >
@@ -519,25 +520,33 @@ export default function DashboardView({
                 key: TICKET_CATEGORIES.REPAIR,
                 icon: "🔧",
                 color: "#dc2626",
+                gradient: "linear-gradient(135deg, #dc2626, #f87171)",
                 desc: "故障排除與零件更換",
+                subTypeKeys: ["一般維修", "困難維修", "外修判定", "簡易檢測"],
               },
               {
                 key: TICKET_CATEGORIES.MAINTENANCE,
                 icon: "🛡️",
                 color: "#16a34a",
+                gradient: "linear-gradient(135deg, #16a34a, #4ade80)",
                 desc: "定期保養與合約履約",
+                subTypeKeys: ["居家保養", "醫院保養"],
               },
               {
                 key: TICKET_CATEGORIES.INSTALLATION,
                 icon: "📦",
                 color: "#d97706",
+                gradient: "linear-gradient(135deg, #d97706, #fbbf24)",
                 desc: "新機交付與專案建置",
+                subTypeKeys: ["居家裝機", "醫院安裝", "睡眠中心"],
               },
               {
                 key: TICKET_CATEGORIES.REFURBISHMENT,
                 icon: "♻️",
                 color: "#0284c7",
+                gradient: "linear-gradient(135deg, #0284c7, #38bdf8)",
                 desc: "內部設備資產整備與其他",
+                subTypeKeys: ["批量整新", "其他預設"],
               },
             ].map((cat) => {
               const cData = stats.strat.categories[cat.key];
@@ -551,333 +560,468 @@ export default function DashboardView({
                 (cData.extCost || 0) -
                 (cData.partsCost || 0);
               const isSelected = selectedCategory === cat.key;
+              const brandColorMap = {
+                Philips: "#0284c7",
+                ResMed: "#2563eb",
+                萊鎂: "#10b981",
+                怡氧: "#8b5cf6",
+                永悅: "#f59e0b",
+              };
 
               return (
                 <div
                   key={cat.key}
-                  className="card"
                   onClick={() =>
                     setSelectedCategory(isSelected ? null : cat.key)
                   }
                   style={{
-                    padding: 16,
-                    borderTop: `4px solid ${cat.color}`,
+                    position: "relative",
+                    padding: 2,
+                    borderRadius: 12,
                     background: isSelected
-                      ? `${cat.color}10`
-                      : "var(--color-surface)",
-                    display: "flex",
-                    flexDirection: "column",
+                      ? cat.gradient
+                      : `linear-gradient(135deg, ${cat.color}60, ${cat.color}20)`,
                     cursor: "pointer",
-                    border: isSelected
-                      ? `2px solid ${cat.color}`
-                      : "1px solid var(--color-border)",
-                    transform: isSelected ? "scale(1.02)" : "scale(1)",
+                    transition: "all 0.3s ease-in-out",
+                    transform: isSelected ? "scale(1.01)" : "scale(1)",
                     boxShadow: isSelected
-                      ? `0 8px 16px ${cat.color}30`
-                      : "inherit",
-                    transition: "all 0.2s ease-in-out",
+                      ? `0 8px 24px ${cat.color}40`
+                      : `0 2px 8px rgba(0,0,0,0.3)`,
                   }}
                 >
                   <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      marginBottom: 4,
-                    }}
-                  >
-                    <div style={{ fontSize: "1.8rem" }}>{cat.icon}</div>
-                    <div>
-                      <div
-                        style={{
-                          fontWeight: 800,
-                          fontSize: "1.1rem",
-                          color: "var(--color-text)",
-                        }}
-                      >
-                        {cat.key}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "var(--color-text-secondary)",
-                        }}
-                      >
-                        {cat.desc}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 12,
+                      background: isSelected
+                        ? `linear-gradient(180deg, ${cat.color}18, var(--color-surface))`
+                        : "var(--color-surface)",
+                      borderRadius: 10,
+                      padding: "16px 18px",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 6,
-                      flex: 1,
+                      height: "100%",
+                      minHeight: 280,
                     }}
                   >
+                    {/* ═══ 核心區（上）═══ */}
                     <div
                       style={{
                         display: "flex",
-                        justifyContent: "space-between",
                         alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 10,
                       }}
                     >
-                      <span
-                        style={{
-                          color: "var(--color-text-secondary)",
-                          fontSize: "0.85rem",
-                        }}
-                      >
-                        案量佔比
-                      </span>
                       <div
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 6,
+                          gap: 10,
                         }}
                       >
-                        <span
+                        <div
                           style={{
-                            fontWeight: 800,
-                            color: cat.color,
-                            fontSize: "1.1rem",
+                            fontSize: "1.8rem",
+                            filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))",
                           }}
                         >
-                          {cData.cases}{" "}
-                          <span style={{ fontSize: "0.8rem" }}>
-                            件 ({pct}%)
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            openSectorModal(cat.key);
-                          }}
-                          title={`點擊查看 ${cat.key} 所有單據明細`}
-                          style={{
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                            cursor: "pointer",
-                            fontSize: "0.7rem",
-                            fontWeight: 600,
-                            background: `${cat.color}15`,
-                            color: cat.color,
-                            border: `1px solid ${cat.color}40`,
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.target.style.background = `${cat.color}25`)
-                          }
-                          onMouseLeave={(e) =>
-                            (e.target.style.background = `${cat.color}15`)
-                          }
-                        >
-                          查看明細
-                        </button>
+                          {cat.icon}
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              fontWeight: 800,
+                              fontSize: "1.15rem",
+                              color: "var(--color-text)",
+                              letterSpacing: "0.3px",
+                            }}
+                          >
+                            {cat.key}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.72rem",
+                              color: "var(--color-text-secondary)",
+                              marginTop: 1,
+                            }}
+                          >
+                            {cat.desc}
+                          </div>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openSectorModal(cat.key);
+                        }}
+                        title={`點擊查看 ${cat.key} 所有單據明細`}
+                        style={{
+                          padding: "3px 10px",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          fontSize: "0.7rem",
+                          fontWeight: 600,
+                          background: `${cat.color}15`,
+                          color: cat.color,
+                          border: `1px solid ${cat.color}40`,
+                          whiteSpace: "nowrap",
+                          transition: "background 0.2s",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.target.style.background = `${cat.color}30`)
+                        }
+                        onMouseLeave={(e) =>
+                          (e.target.style.background = `${cat.color}15`)
+                        }
+                      >
+                        查看明細
+                      </button>
                     </div>
+
+                    {/* 案量與工時 */}
                     <div
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "center",
+                        alignItems: "baseline",
+                        marginBottom: 4,
                       }}
                     >
-                      <span
+                      <div>
+                        <span
+                          style={{
+                            color: "var(--color-text-secondary)",
+                            fontSize: "0.8rem",
+                          }}
+                        >
+                          案量佔比
+                        </span>
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            color: cat.color,
+                            fontSize: "1.2rem",
+                            marginLeft: 8,
+                          }}
+                        >
+                          {cData.cases}
+                          <span
+                            style={{
+                              fontSize: "0.8rem",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {" "}
+                            件 ({pct}%)
+                          </span>
+                        </span>
+                      </div>
+                      <div>
+                        <span
+                          style={{
+                            color: "var(--color-text-secondary)",
+                            fontSize: "0.8rem",
+                          }}
+                        >
+                          貢獻工時點數{" "}
+                        </span>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color: "var(--color-text)",
+                            fontSize: "1.05rem",
+                          }}
+                        >
+                          {cData.points.toFixed(1)}{" "}
+                          <span style={{ fontSize: "0.75rem" }}>pt</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ═══ 細節區（中）═══ */}
+                    <div
+                      style={{
+                        borderTop: `1px dashed ${cat.color}40`,
+                        borderBottom: `1px dashed ${cat.color}40`,
+                        padding: "10px 0",
+                        margin: "6px 0",
+                        flex: 1,
+                      }}
+                    >
+                      {/* 子類型雙欄排列 */}
+                      <div
                         style={{
-                          color: "var(--color-text-secondary)",
-                          fontSize: "0.85rem",
+                          display: "grid",
+                          gridTemplateColumns:
+                            cat.subTypeKeys.length > 2
+                              ? "1fr 1fr"
+                              : "1fr 1fr",
+                          gap: "4px 16px",
+                          marginBottom: 8,
                         }}
                       >
-                        貢獻工時點數
-                      </span>
-                      <span
-                        style={{ fontWeight: 700, color: "var(--color-text)" }}
-                      >
-                        {cData.points.toFixed(1)} pt
-                      </span>
-                    </div>
-                    {/* 卡片內異常微型指標 */}
-                    {(() => {
-                      const cardAnomalies =
-                        sectorAnomalies?.filter(
-                          (a) =>
-                            a.sectorKey === cat.key &&
-                            !dismissedAnomalies.has(a.id),
-                        ) || [];
-                      if (cardAnomalies.length === 0) return null;
-                      const hasCritical = cardAnomalies.some(
-                        (a) => a.severity === "critical",
-                      );
-                      const severity = hasCritical ? "critical" : "warning";
-                      return (
+                        {cat.subTypeKeys.map((st) => (
+                          <div
+                            key={st}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              fontSize: "0.78rem",
+                              padding: "2px 0",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color: "var(--color-text-secondary)",
+                              }}
+                            >
+                              {st}
+                            </span>
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                color: "var(--color-text)",
+                                minWidth: 20,
+                                textAlign: "right",
+                              }}
+                            >
+                              {cData.subTypes?.[st] || 0}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* 品牌標籤 */}
+                      {cData.brands && (
                         <div
-                          className={`anomaly-card-indicator anomaly-card-indicator--${severity}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const el = document.querySelector(".anomaly-strip");
-                            if (el)
-                              el.scrollIntoView({
-                                behavior: "smooth",
-                                block: "center",
-                              });
+                          style={{
+                            display: "flex",
+                            gap: "4px 10px",
+                            flexWrap: "wrap",
+                            fontSize: "0.73rem",
+                            fontWeight: 600,
+                            marginBottom: 4,
                           }}
-                          title={cardAnomalies.map((a) => a.title).join("\n")}
-                          style={{ marginTop: 8 }}
                         >
-                          ⚠️ {cardAnomalies.length} 個異常
+                          {Object.entries(cData.brands)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([b, count]) => {
+                              if (count === 0) return null;
+                              const bColor =
+                                brandColorMap[b] || "#64748b";
+                              return (
+                                <div key={b} style={{ color: bColor }}>
+                                  {b}: {count}
+                                </div>
+                              );
+                            })}
                         </div>
-                      );
-                    })()}
+                      )}
+                      {/* 設備類型標籤 */}
+                      {cData.deviceTypes && (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "4px 10px",
+                            flexWrap: "wrap",
+                            fontSize: "0.73rem",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {Object.entries(cData.deviceTypes)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([dt, count]) => {
+                              if (count === 0) return null;
+                              return (
+                                <div
+                                  key={dt}
+                                  style={{ color: "#0f766e" }}
+                                >
+                                  {dt}: {count}
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ═══ 監控區（下）═══ */}
+                    <div style={{ margin: "4px 0" }}>
+                      {/* 異常警告 */}
+                      {(() => {
+                        const cardAnomalies =
+                          sectorAnomalies?.filter(
+                            (a) =>
+                              a.sectorKey === cat.key &&
+                              !dismissedAnomalies.has(a.id),
+                          ) || [];
+                        if (cardAnomalies.length === 0 && !(cat.key === TICKET_CATEGORIES.REPAIR && cData.recallCount > 0)) return null;
+                        const hasCritical = cardAnomalies.some(
+                          (a) => a.severity === "critical",
+                        );
+                        const severity = hasCritical
+                          ? "critical"
+                          : "warning";
+                        return (
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                            }}
+                          >
+                            {cardAnomalies.length > 0 && (
+                              <div
+                                className={`anomaly-card-indicator anomaly-card-indicator--${severity}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const el =
+                                    document.querySelector(
+                                      ".anomaly-section",
+                                    );
+                                  if (el)
+                                    el.scrollIntoView({
+                                      behavior: "smooth",
+                                      block: "start",
+                                    });
+                                }}
+                                title={cardAnomalies
+                                  .map((a) => a.title)
+                                  .join("\n")}
+                              >
+                                ⚠️ {cardAnomalies.length} 個異常
+                              </div>
+                            )}
+                            {/* 二修（重複維修）醒目警示 — 僅維修卡片 */}
+                            {cat.key ===
+                              TICKET_CATEGORIES.REPAIR &&
+                              cData.recallCount > 0 && (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    padding: "5px 10px",
+                                    borderRadius: 6,
+                                    background:
+                                      "linear-gradient(90deg, rgba(245,158,11,0.2), rgba(251,146,60,0.12))",
+                                    border:
+                                      "1px solid rgba(245,158,11,0.5)",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 700,
+                                    color: "#f59e0b",
+                                    animation: cData.recallCount >= 3
+                                      ? "sector-recall-pulse 2s infinite"
+                                      : "none",
+                                  }}
+                                >
+                                  <span style={{ fontSize: "1rem" }}>
+                                    🔄
+                                  </span>
+                                  <span>
+                                    二修 (重複維修)：
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: "1.05rem",
+                                      color: "#fb923c",
+                                      fontWeight: 800,
+                                    }}
+                                  >
+                                    {cData.recallCount} 件
+                                  </span>
+                                </div>
+                              )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* ═══ 財務區（底部）═══ */}
                     {cat.key === TICKET_CATEGORIES.REPAIR && (
-                      <>
-                        {cData.brands && (
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "4px 8px",
-                              flexWrap: "wrap",
-                              marginTop: "auto",
-                              paddingTop: 8,
-                              fontSize: "0.75rem",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {Object.entries(cData.brands)
-                              .sort((a, b) => b[1] - a[1])
-                              .map(([b, count]) => {
-                                if (count === 0) return null;
-                                const color =
-                                  b === "Philips"
-                                    ? "#0284c7"
-                                    : b === "ResMed"
-                                      ? "#2563eb"
-                                      : b === "萊鎂"
-                                        ? "#10b981"
-                                        : b === "怡氧"
-                                          ? "#8b5cf6"
-                                          : b === "永悅"
-                                            ? "#f59e0b"
-                                            : "#64748b";
-                                return (
-                                  <div key={b} style={{ color }}>
-                                    {b}: {count}
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        )}
-                        {cData.deviceTypes && (
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: "4px 8px",
-                              flexWrap: "wrap",
-                              marginTop: 4,
-                              fontSize: "0.75rem",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {Object.entries(cData.deviceTypes)
-                              .sort((a, b) => b[1] - a[1])
-                              .map(([dt, count]) => {
-                                if (count === 0) return null;
-                                return (
-                                  <div key={dt} style={{ color: "#0f766e" }}>
-                                    {dt}: {count}
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        )}
+                      <div
+                        style={{
+                          paddingTop: 8,
+                          marginTop: "auto",
+                          borderTop:
+                            "1px solid var(--color-border)",
+                        }}
+                      >
                         <div
                           style={{
                             display: "flex",
                             justifyContent: "space-between",
-                            marginTop: cData.brands ? 4 : "auto",
-                            paddingTop: 8,
-                            borderTop: "1px solid var(--color-border)",
+                            alignItems: "center",
                           }}
                         >
                           <span
                             style={{
                               color: "var(--color-text-secondary)",
                               fontSize: "0.85rem",
+                              fontWeight: 500,
                             }}
                           >
                             報修毛利
                           </span>
-                          <span style={{ fontWeight: 800, color: "#8b5cf6" }}>
+                          <span
+                            style={{
+                              fontWeight: 800,
+                              fontSize: "1.05rem",
+                              color:
+                                margin >= 0
+                                  ? "#8b5cf6"
+                                  : "#ef4444",
+                            }}
+                          >
                             ${margin.toLocaleString()}
                           </span>
                         </div>
-                      </>
+                        <div
+                          style={{
+                            fontSize: "0.65rem",
+                            color: "var(--color-text-secondary)",
+                            marginTop: 4,
+                            opacity: 0.7,
+                          }}
+                        >
+                          ＝ 收費金額 − 外修金額 − 零件成本
+                        </div>
+                      </div>
                     )}
-                    {cat.key === TICKET_CATEGORIES.MAINTENANCE && (
-                      <>
-                        <div
+                    {cat.key ===
+                      TICKET_CATEGORIES.MAINTENANCE && (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          paddingTop: 8,
+                          marginTop: "auto",
+                          borderTop:
+                            "1px solid var(--color-border)",
+                        }}
+                      >
+                        <span
                           style={{
-                            background: "rgba(22, 163, 74, 0.08)",
-                            padding: "6px 8px",
-                            borderRadius: 4,
-                            marginTop: "auto",
-                            marginBottom: 8,
-                            pt: 4,
+                            color: "var(--color-text-secondary)",
+                            fontSize: "0.85rem",
+                            fontWeight: 500,
                           }}
                         >
-                          <div
-                            style={{
-                              fontSize: "0.65rem",
-                              color: "var(--color-text-secondary)",
-                              lineHeight: 1.3,
-                              marginBottom: 4,
-                            }}
-                          >
-                            📝
-                            定義：有合約要求或排程前往的定期清洗、校正等純保養案件。獨立於實際發生故障件數外計算，避免稀釋產品返修比。
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 12,
-                              fontSize: "0.7rem",
-                              color: "var(--color-text-secondary)",
-                              fontWeight: 600,
-                            }}
-                          >
-                            <div>
-                              居家保養: {cData.subTypes?.["居家保養"] || 0}
-                            </div>
-                            <div>
-                              醫院保養: {cData.subTypes?.["醫院保養"] || 0}
-                            </div>
-                          </div>
-                        </div>
-                        <div
+                          保養收益
+                        </span>
+                        <span
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            paddingTop: 8,
-                            borderTop: "1px solid var(--color-border)",
+                            fontWeight: 800,
+                            fontSize: "1.05rem",
+                            color: "#10b981",
                           }}
                         >
-                          <span
-                            style={{
-                              color: "var(--color-text-secondary)",
-                              fontSize: "0.85rem",
-                            }}
-                          >
-                            保養收益
-                          </span>
-                          <span style={{ fontWeight: 800, color: "#10b981" }}>
-                            ${cData.revenue.toLocaleString()}
-                          </span>
-                        </div>
-                      </>
+                          ${cData.revenue.toLocaleString()}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>

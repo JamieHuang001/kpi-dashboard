@@ -300,13 +300,23 @@ export default function App() {
       } else if (chartType === "slaModel") {
         const base = subCases.filter((c) => c.tat > 5);
         totalContext = base.length;
-        filtered = base.filter((c) => {
-          const m =
-            c.model && c.model !== "-" && c.model !== ""
-              ? c.model
-              : "未填寫/其他";
-          return m === label;
-        });
+        if (label === "其他") {
+          const modelCounts = {};
+          base.forEach((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            modelCounts[m] = (modelCounts[m] || 0) + 1;
+          });
+          const topModels = new Set(Object.entries(modelCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map((e) => e[0]));
+          filtered = base.filter((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            return !topModels.has(m);
+          });
+        } else {
+          filtered = base.filter((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            return m === label;
+          });
+        }
         title = `🚨 SLA 逾期 - 機型: ${label}`;
         isSla = true;
       } else if (chartType === "warType") {
@@ -317,13 +327,23 @@ export default function App() {
       } else if (chartType === "warModel") {
         const base = subCases.filter((c) => c.warranty);
         totalContext = base.length;
-        filtered = base.filter((c) => {
-          const m =
-            c.model && c.model !== "-" && c.model !== ""
-              ? c.model
-              : "未填寫/其他";
-          return m === label;
-        });
+        if (label === "其他") {
+          const modelCounts = {};
+          base.forEach((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            modelCounts[m] = (modelCounts[m] || 0) + 1;
+          });
+          const topModels = new Set(Object.entries(modelCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map((e) => e[0]));
+          filtered = base.filter((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            return !topModels.has(m);
+          });
+        } else {
+          filtered = base.filter((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            return m === label;
+          });
+        }
         title = `🛡️ 保固內 - 機型: ${label}`;
       } else if (chartType === "warStatus") {
         const base = subCases.filter((c) => c.warranty);
@@ -347,19 +367,35 @@ export default function App() {
         title = `🛡️ 保固內 - 需求: ${label}`;
       } else if (chartType === "dimModel") {
         totalContext = subCases.length;
-        filtered = subCases.filter((c) => {
-          const m =
-            c.model && c.model !== "-" && c.model !== ""
-              ? c.model
-              : "未填寫/其他";
-          return m === label;
-        });
+        if (label === "其他") {
+          const modelCounts = {};
+          subCases.forEach((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            modelCounts[m] = (modelCounts[m] || 0) + 1;
+          });
+          const topModels = new Set(Object.entries(modelCounts).sort((a, b) => b[1] - a[1]).slice(0, 8).map((e) => e[0]));
+          filtered = subCases.filter((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            return !topModels.has(m);
+          });
+        } else {
+          filtered = subCases.filter((c) => {
+            const m = c.model && c.model !== "-" && c.model !== "" ? c.model : "未填寫/其他";
+            return m === label;
+          });
+        }
         title = `📱 機型: ${label}`;
       } else if (chartType === "dimStatus") {
         totalContext = subCases.length;
         filtered = subCases.filter((c) => {
-          const st = (c.status || "未填寫").trim() || "未填寫";
-          return st === label;
+          const t = mapType(c.type);
+          const isSlaOver = c.tat > getSlaTarget(t);
+          const wStatus = c.isRecall
+            ? "返修單"
+            : isSlaOver
+              ? "SLA逾期"
+              : "正常完修";
+          return wStatus === label;
         });
         title = `📌 狀態: ${label}`;
       } else if (chartType === "dimType") {
@@ -476,7 +512,16 @@ export default function App() {
 
     const format = (obj, max, colors) => {
       let entries = Object.entries(obj).sort((a, b) => b[1] - a[1]);
-      if (max > 0) entries = entries.slice(0, max);
+      // Consolidate items beyond max into "其他" bucket instead of dropping
+      if (max > 0 && entries.length > max) {
+        const top = entries.slice(0, max);
+        const rest = entries.slice(max);
+        const otherSum = rest.reduce((s, e) => s + e[1], 0);
+        if (otherSum > 0) {
+          top.push(["其他", otherSum]);
+        }
+        entries = top;
+      }
       if (entries.length === 0)
         return { labels: ["無資料"], data: [1], colors: ["#e2e8f0"] };
       return {

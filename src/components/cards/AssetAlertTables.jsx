@@ -15,6 +15,7 @@ const EQUIPMENT_TYPES = [
 
 export function AssetAlertTables({ assetData }) {
   const [modalData, setModalData] = useState(null);
+  const [unregCollapsed, setUnregCollapsed] = useState(true);
 
   const stats = useMemo(() => {
     if (!assetData || assetData.length === 0) return null;
@@ -187,7 +188,10 @@ export function AssetAlertTables({ assetData }) {
 
       {stats.unregistered.total > 0 && (
         <div className="p-5 rounded-xl border shadow-sm" style={{ background: 'var(--color-surface-alt)', borderColor: 'var(--color-border)' }}>
-          <div className="flex items-center gap-3 mb-4">
+          <div
+            className="flex items-center gap-3 cursor-pointer select-none"
+            onClick={() => setUnregCollapsed((p) => !p)}
+          >
             <div className="text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm" style={{ background: 'var(--color-danger)' }}>
               ⚠️ 無帳設備
             </div>
@@ -198,46 +202,61 @@ export function AssetAlertTables({ assetData }) {
               </strong>{" "}
               台 — 不計入上方統計
             </span>
+            <span
+              style={{
+                marginLeft: 'auto',
+                fontSize: '1.1rem',
+                color: 'var(--color-text-secondary)',
+                transition: 'transform 0.3s ease',
+                transform: unregCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              ▾
+            </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead>
-                <tr className="border-b-2" style={{ borderColor: 'var(--color-border)', color: 'var(--color-danger)' }}>
-                  <th className="px-2 py-2 font-bold">產品名稱</th>
-                  <th className="px-2 py-2 font-bold">型號</th>
-                  <th className="px-2 py-2 font-bold">序號</th>
-                  <th className="px-2 py-2 font-bold">狀態</th>
-                  <th className="px-2 py-2 font-bold">位置</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
-                {stats.unregistered.items.slice(0, 50).map((item, i) => (
-                  <tr
-                    key={i}
-                    className="transition-colors" style={{ color: 'var(--color-text)' }}
-                  >
-                    <td className="px-2 py-2 font-medium">
-                      {item.productName || "-"}
-                    </td>
-                    <td className="px-2 py-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      {item.model || "-"}
-                    </td>
-                    <td className="px-2 py-2 font-mono text-[10px]" style={{ color: 'var(--color-warning)' }}>
-                      {item.serialNo || "-"}
-                    </td>
-                    <td className="px-2 py-2">
-                      <span className="px-2 py-0.5 rounded font-bold text-[10px]" style={{ background: 'var(--color-surface)', color: 'var(--color-danger)' }}>
-                        {item.status || "-"}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
-                      {item.location || "-"}
-                    </td>
+          {!unregCollapsed && (
+            <div className="overflow-x-auto" style={{ marginTop: 16 }}>
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead>
+                  <tr className="border-b-2" style={{ borderColor: 'var(--color-border)', color: 'var(--color-danger)' }}>
+                    <th className="px-2 py-2 font-bold">產品名稱</th>
+                    <th className="px-2 py-2 font-bold">型號</th>
+                    <th className="px-2 py-2 font-bold">序號</th>
+                    <th className="px-2 py-2 font-bold">狀態</th>
+                    <th className="px-2 py-2 font-bold">位置</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+                  {stats.unregistered.items.slice(0, 50).map((item, i) => (
+                    <tr
+                      key={i}
+                      className="transition-colors" style={{ color: 'var(--color-text)' }}
+                    >
+                      <td className="px-2 py-2 font-medium">
+                        {item.productName || "-"}
+                      </td>
+                      <td className="px-2 py-2" style={{ color: 'var(--color-text-secondary)' }}>
+                        {item.model || "-"}
+                      </td>
+                      <td className="px-2 py-2 font-mono text-[10px]" style={{ color: 'var(--color-warning)' }}>
+                        {item.serialNo || "-"}
+                      </td>
+                      <td className="px-2 py-2">
+                        <span className="px-2 py-0.5 rounded font-bold text-[10px]" style={{ background: 'var(--color-surface)', color: 'var(--color-danger)' }}>
+                          {item.status || "-"}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+                        {item.location || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

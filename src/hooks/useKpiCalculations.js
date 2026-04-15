@@ -99,6 +99,7 @@ export function useKpiCalculations({
           revenue: 0,
           partsCost: 0,
           extCost: 0,
+          recallCount: 0,
         },
         [TICKET_CATEGORIES.MAINTENANCE]: {
           cases: 0,
@@ -152,6 +153,7 @@ export function useKpiCalculations({
         if (c.isRecall) {
           engStats[c.engineer].recallNum++;
           total.recallNum++;
+          strat.categories[TICKET_CATEGORIES.REPAIR].recallCount++;
         }
       }
 

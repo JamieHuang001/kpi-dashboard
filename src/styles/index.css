@@ -1509,6 +1509,16 @@ body {
   transform: scale(1.05);
 }
 
+/* Sector recall (二修) pulse animation */
+@keyframes sector-recall-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
+}
+
 /* Anomaly config panel (popover) */
 .anomaly-config-panel {
   position: absolute;
