@@ -61,7 +61,7 @@ const OperationsDashboard = memo(function OperationsDashboard({
 
       {/* Bottom Row: Risk Management */}
       <div className="w-full">
-        <RiskManagement stats={stats} />
+        <RiskManagement stats={stats} cases={filteredCases} />
       </div>
     </div>
   );

@@ -1,3 +1,21 @@
+# 🔥 v6.0.5 更新日誌
+
+發佈日期：2026-04-25
+
+本次 v6.0.5 版本針對「營運風險監控 (Operations Risk)」區塊進行全面升級，新增互動式計算細節透視與可點擊的案件下鑽功能，並開放風險閾值自訂設定。
+
+## ✨ 新增功能與優化 (Features & Improvements)
+- **風險指標計算透視 (Detail Modal)**：點擊三大風險儀表（積壓負荷率、SLA 合規率、FTFR），即彈出完整的計算解析視窗，包含算法公式、實際數值代入過程、原始數據卡片與閾值對照表。
+- **件數下鑽明細 (Case Drill-Down)**：Detail Modal 中所有帶有「件數」的數據卡片皆可點擊展開，顯示對應的工單明細清單（工單號、客戶、機型、工程師、TAT、類型），支援 SLA 超標/合規案件篩選、返修/一次修復案件篩選。
+- **風險閾值自訂 (Threshold Settings)**：「設定閾值」按鈕現已啟用，管理員可自訂三大指標的「警戒」與「高危」百分比分界點，設定透過 `localStorage` 持久化儲存，並提供「重設為預設值」一鍵還原。
+- **UX 互動提示優化**：風險卡片 hover 時顯示「🔍 點擊查看詳情」，件數卡片有點擊時顯示「🔍 點擊展開」引導文字。
+
+## 📁 異動檔案 (Changed Files)
+- `src/components/cards/RiskManagement.jsx` — 新增 `CaseListPanel`、`CountCard` 子組件，重構 `DetailModal` 以支援案件下鑽
+- `src/components/cards/OperationsDashboard.jsx` — 傳遞 `filteredCases` 至 `RiskManagement`
+
+---
+
 # 🔥 v6.0.4 更新日誌
 
 發佈日期：2026-04-15
