@@ -360,6 +360,8 @@ export async function fetchHomeMaintenanceData(spreadsheetId, sheetId, title, ap
         machine: headers.findIndex(h => h.includes('機型') || h.includes('設備') || h.includes('機種')),
         assignedEngineer: headers.findIndex(h => h === '工程師' || h.includes('負責人')),
         actualEngineer: headers.findIndex(h => h.includes('當月工程師') || h.includes('保養人')),
+        closingDate: headers.findIndex(h => h.includes('結案日期') || h.includes('結案')),
+        contract: headers.findIndex(h => h.includes('合約')),
         notes: headers.findIndex(h => h.includes('備註') || h.includes('耗材'))
     };
 
@@ -384,6 +386,7 @@ export async function fetchHomeMaintenanceData(spreadsheetId, sheetId, title, ap
         let statusText = getCell('status')?.formattedValue || '';
         const notesText = getCell('notes')?.formattedValue || '';
         const assignedEngineerText = getCell('assignedEngineer')?.formattedValue || '';
+        const closingDateText = getCell('closingDate')?.formattedValue || '';
 
         const actualEngineerCell = getCell('actualEngineer');
         const actualEngineerText = actualEngineerCell?.formattedValue || '';
@@ -393,9 +396,12 @@ export async function fetchHomeMaintenanceData(spreadsheetId, sheetId, title, ap
         let finalStatus = '待保養';
         let skipForDenominator = false;
 
-        // 當月有實際保養的工程師署名，才算完成
+        // 優先判斷：當月工程師有填 → 已保養
         if (actualEngineerText.trim().length > 0) {
             finalStatus = '已保養';
+        // 次優先：結案日期有填 → 已結案（視為完成，但另外統計）
+        } else if (closingDateText.trim().length > 0) {
+            finalStatus = '已結案';
         } else if (isBlackCell || isActualEngineerBlack) {
             finalStatus = '當月不用保養';
             skipForDenominator = true;
@@ -413,13 +419,17 @@ export async function fetchHomeMaintenanceData(spreadsheetId, sheetId, title, ap
             status: finalStatus,
             originalStatusText: statusText, // 保留原始寫法供除錯
             date: dateText,
+            closingDate: closingDateText,
             location: getCell('location')?.formattedValue || '',
+            contract: getCell('contract')?.formattedValue || '',
             machine: getCell('machine')?.formattedValue || '',
             assignedEngineer: assignedEngineerText,
             actualEngineer: actualEngineerText,
             notes: notesText,
             skip: skipForDenominator, // 若為 true 則圖表統計不計入這筆的分母
-            materialCosts: materials
+            materialCosts: materials,
+            sheetStatus: cells[0]?.formattedValue || '', // A欄: 狀態
+            homeHospital: cells[5]?.formattedValue || '' // F欄: 醫療院所
         });
     }
 
@@ -450,6 +460,8 @@ export async function fetchHospitalMaintenanceData(spreadsheetId, sheetId, title
         date: headers.findIndex(h => h.includes('日期') || h.includes('保養日')),
         machine: headers.findIndex(h => h.includes('機型') || h.includes('設備') || h.includes('機種')),
         amount: headers.findIndex(h => h.includes('台數') || h.includes('數量')),
+        contract: headers.findIndex(h => h.includes('合約')),
+        location: headers.findIndex(h => h.includes('區域') || h.includes('地址') || h.includes('縣市')),
         firstMonthCol: headers.findIndex(h => h.includes('1月') || h === '1') // Try to find where months start
     };
 
@@ -504,6 +516,8 @@ export async function fetchHospitalMaintenanceData(spreadsheetId, sheetId, title
                 month: m + 1, // 1~12
                 hospital: hospitalText,
                 hospitalLink: hospitalLink,
+                location: colMap.location > -1 ? (cells[colMap.location]?.formattedValue || '') : '',
+                contract: colMap.contract > -1 ? (cells[colMap.contract]?.formattedValue || '') : '',
                 machine: colMap.machine > -1 ? (cells[colMap.machine]?.formattedValue || '') : '',
                 amount: amtNum,
                 originalDateText: mText,

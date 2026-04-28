@@ -6,6 +6,6 @@
 // ★ 發版時只需修改此檔案
 // =====================================================
 
-export const APP_VERSION = '6.0.5';
+export const APP_VERSION = '6.0.6';
 export const APP_VERSION_DISPLAY = `V${APP_VERSION}`;
 export const APP_TITLE = 'BI Dashboard';

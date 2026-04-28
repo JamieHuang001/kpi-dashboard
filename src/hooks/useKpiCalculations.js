@@ -342,6 +342,8 @@ export function useKpiCalculations({
     const modelSN = {};
     displayCases.forEach((c) => {
       if (!c.model || c.model === "-" || !c.sn || c.sn.length < 3) return;
+      const mt = mapType(c.type);
+      if (getCategory(mt) !== TICKET_CATEGORIES.REPAIR) return;
       const sn = c.sn.toUpperCase();
       if (["無", "N/A", "NA", "#N/A"].includes(sn)) return;
       if (!modelSN[c.model]) modelSN[c.model] = {};
