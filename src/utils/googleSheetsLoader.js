@@ -284,7 +284,7 @@ export async function fetchMaintenanceMetadata(apiKey) {
     };
 }
 
-import { calculateMaterialCosts } from './materialPricing.js';
+import { calculateMaterialCosts, CONSUMABLE_COLUMNS_CONFIG } from './materialPricing.js';
 
 /**
  * 輔助判斷：儲存格是否為黑色背景
@@ -365,6 +365,22 @@ export async function fetchHomeMaintenanceData(spreadsheetId, sheetId, title, ap
         notes: headers.findIndex(h => h.includes('備註') || h.includes('耗材'))
     };
 
+    // --- 動態偵測耗材欄位 (W~AN 區域) ---
+    const consumableColMap = {}; // { colIndex: partNo }
+    for (let colIdx = 20; colIdx < headers.length; colIdx++) {
+        const headerText = (headers[colIdx] || '').replace(/\s+/g, ' ').trim();
+        if (!headerText) continue;
+
+        for (const config of CONSUMABLE_COLUMNS_CONFIG) {
+            const matched = config.aliases.some(alias => headerText.includes(alias));
+            if (matched) {
+                consumableColMap[colIdx] = config.partNo;
+                break;
+            }
+        }
+    }
+    console.log(`[耗材欄位偵測] 在 ${title} 找到 ${Object.keys(consumableColMap).length} 個耗材欄位`);
+
     const records = [];
     for (let i = headerIdx + 1; i < rowData.length; i++) {
         const cells = rowData[i].values || [];
@@ -409,8 +425,20 @@ export async function fetchHomeMaintenanceData(spreadsheetId, sheetId, title, ap
             finalStatus = '待保養';
         }
 
-        // 解析耗材
+        // 解析耗材（備註文字比對 - 保留向下相容）
         const materials = calculateMaterialCosts(notesText);
+
+        // --- 解析結構化耗材數量 (W~AN 欄) ---
+        const consumables = [];
+        for (const [colIdxStr, partNo] of Object.entries(consumableColMap)) {
+            const colIdx = parseInt(colIdxStr, 10);
+            const cell = cells[colIdx];
+            const rawVal = cell?.formattedValue || '';
+            const qty = parseInt(rawVal, 10);
+            if (!isNaN(qty) && qty > 0) {
+                consumables.push({ partNo, qty });
+            }
+        }
 
         records.push({
             sheetTitle: title,
@@ -428,6 +456,7 @@ export async function fetchHomeMaintenanceData(spreadsheetId, sheetId, title, ap
             notes: notesText,
             skip: skipForDenominator, // 若為 true 則圖表統計不計入這筆的分母
             materialCosts: materials,
+            consumables, // 結構化耗材數量
             sheetStatus: cells[0]?.formattedValue || '', // A欄: 狀態
             homeHospital: cells[5]?.formattedValue || '' // F欄: 醫療院所
         });

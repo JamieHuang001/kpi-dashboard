@@ -25,8 +25,75 @@ export const MATERIAL_PRICING = {
     'GH-RST-S014': { name: '尖頭軟管(多次式)', cost: 0, price: 0 },
     'HC-OM81620': { name: '成人氣切面罩', cost: 48, price: 60 },
     'HC014': { name: 'P085120-聖誕樹', cost: 40, price: 50 },
-    'P0600003': { name: '怡氧-盒型過濾器', cost: 615, price: 800 }
+    'P0600003': { name: '怡氧-盒型過濾器', cost: 615, price: 800 },
+    '1035443': { name: '黑色重複式濾棉', cost: 90, price: 0 }, // 報價待補
 };
+
+/**
+ * 居家保養 W~AN 欄耗材配置
+ * partNo: 對應 MATERIAL_PRICING 的 key
+ * aliases: 可能出現在試算表標頭的寫法
+ * displayName: 儀表板顯示用的短名稱
+ */
+export const CONSUMABLE_COLUMNS_CONFIG = [
+    { partNo: 'HC001',      aliases: ['HC001'],              displayName: '蛇型管' },
+    { partNo: 'HC002',      aliases: ['HC002'],              displayName: '細菌過濾器(F-F01)' },
+    { partNo: 'HC004',      aliases: ['HC004'],              displayName: '集水瓶' },
+    { partNo: 'H-G-314001', aliases: ['H-G-314'],            displayName: 'Chamber' },
+    { partNo: 'HC011',      aliases: ['HC011'],              displayName: '拋棄式單管' },
+    { partNo: '1035443',    aliases: ['1035443', '1035447'],  displayName: '重複式濾棉' },
+    { partNo: 'HC009',      aliases: ['HC009'],              displayName: '氧氣導管2M' },
+    { partNo: 'HC008',      aliases: ['HC008'],              displayName: '氧氣延長管6M' },
+    { partNo: 'HC-OX-2',    aliases: ['HCOX-O2', 'HC-OX-2'], displayName: '氧氣鼻導管2.5M' },
+    { partNo: 'HC-NC08460', aliases: ['HC-08460', 'HC-NC08460'], displayName: '氧氣鼻導管6M' },
+    { partNo: 'HC007',      aliases: ['HC007'],              displayName: '連接頭' },
+    { partNo: 'HC-CL12',    aliases: ['HC-CL12'],            displayName: 'L型接頭' },
+    { partNo: '1065775',    aliases: ['1065775'],             displayName: '吐氣閥' },
+    { partNo: 'HC010',      aliases: ['HC010'],              displayName: 'T接頭' },
+    { partNo: 'HC-CS04',    aliases: ['HC-CS04'],            displayName: '直型接頭' },
+    { partNo: 'AHSG-H-F15', aliases: ['F15', 'AHSG-H-F15'],  displayName: '毛毛蟲管' },
+    { partNo: 'R1038831',   aliases: ['R1038831'],           displayName: '盒型過濾器' },
+    { partNo: 'HC012',      aliases: ['HC012'],              displayName: '潮濕瓶' },
+];
+
+/**
+ * 根據結構化耗材數量陣列，計算總成本與報價
+ * @param {Array<{partNo: string, qty: number}>} consumables
+ * @returns {{ totalCost: number, totalPrice: number, items: Array<{partNo, displayName, qty, unitCost, unitPrice, lineCost, linePrice}> }}
+ */
+export function calculateConsumableCosts(consumables) {
+    if (!consumables || consumables.length === 0) {
+        return { totalCost: 0, totalPrice: 0, items: [] };
+    }
+
+    let totalCost = 0;
+    let totalPrice = 0;
+    const items = [];
+
+    for (const { partNo, qty } of consumables) {
+        const pricing = MATERIAL_PRICING[partNo];
+        const config = CONSUMABLE_COLUMNS_CONFIG.find(c => c.partNo === partNo);
+        const unitCost = pricing?.cost || 0;
+        const unitPrice = pricing?.price || 0;
+        const lineCost = unitCost * qty;
+        const linePrice = unitPrice * qty;
+
+        totalCost += lineCost;
+        totalPrice += linePrice;
+
+        items.push({
+            partNo,
+            displayName: config?.displayName || pricing?.name || partNo,
+            qty,
+            unitCost,
+            unitPrice,
+            lineCost,
+            linePrice,
+        });
+    }
+
+    return { totalCost, totalPrice, items };
+}
 
 /**
  * 給定保養備註字串，粗略估算其中提到的耗材總成本與報價

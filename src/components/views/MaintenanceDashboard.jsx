@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchMaintenanceMetadata, fetchHomeMaintenanceData, fetchHospitalMaintenanceData } from '../../utils/googleSheetsLoader';
 import { Doughnut, Bar } from 'react-chartjs-2';
+import { calculateConsumableCosts, CONSUMABLE_COLUMNS_CONFIG } from '../../utils/materialPricing';
 
 export default function MaintenanceDashboard() {
     const [loading, setLoading] = useState(true);
@@ -145,14 +146,13 @@ export default function MaintenanceDashboard() {
         const pending = total - completed;
 
         const engineers = {};
-        let totalMaterialCost = 0;
-        let totalMaterialRevenue = 0;
 
         const breakdowns = {
             status: {},
             contract: {},
             hospital: {},
-            region: {}
+            region: {},
+            machine: {}
         };
 
         // Calculate breakdowns on all filtered data (including skipped, to match grandTotal)
@@ -161,12 +161,19 @@ export default function MaintenanceDashboard() {
             const cont = d.contract || '無合約';
             const hosp = d.homeHospital || '未指定';
             const reg = d.location || '未分區';
+            const mac = d.machine || '未指定';
 
             breakdowns.status[stat] = (breakdowns.status[stat] || 0) + 1;
             breakdowns.contract[cont] = (breakdowns.contract[cont] || 0) + 1;
             breakdowns.hospital[hosp] = (breakdowns.hospital[hosp] || 0) + 1;
             breakdowns.region[reg] = (breakdowns.region[reg] || 0) + 1;
+            breakdowns.machine[mac] = (breakdowns.machine[mac] || 0) + 1;
         });
+
+        // --- 耗材統計 (結構化 W~AN 欄) ---
+        const consumableByType = {}; // { partNo: totalQty }
+        const consumableByPatient = {}; // { name: { consumables: [...], totalQty, contract } }
+        const consumableByHospital = {}; // { hospital: { totalQty, totalCost, totalPrice } }
 
         validData.forEach(d => {
             const eng = d.actualEngineer || d.assignedEngineer || '未指派';
@@ -174,13 +181,73 @@ export default function MaintenanceDashboard() {
             engineers[eng].total += 1;
             if (d.status === '已保養' || d.status === '已結案') engineers[eng].completed += 1;
 
-            if (d.materialCosts) {
-                totalMaterialCost += d.materialCosts.totalCost || 0;
-                totalMaterialRevenue += d.materialCosts.totalPrice || 0;
+            // 累計耗材統計
+            if (d.consumables && d.consumables.length > 0) {
+                // By type
+                d.consumables.forEach(({ partNo, qty }) => {
+                    consumableByType[partNo] = (consumableByType[partNo] || 0) + qty;
+                });
+
+                // By patient
+                const patientKey = d.name || '未命名';
+                if (!consumableByPatient[patientKey]) {
+                    consumableByPatient[patientKey] = { consumables: [], totalQty: 0, contract: d.contract || '無合約' };
+                }
+                d.consumables.forEach(({ partNo, qty }) => {
+                    consumableByPatient[patientKey].totalQty += qty;
+                    const existing = consumableByPatient[patientKey].consumables.find(c => c.partNo === partNo);
+                    if (existing) existing.qty += qty;
+                    else consumableByPatient[patientKey].consumables.push({ partNo, qty });
+                });
+
+                // By hospital
+                const hospKey = d.homeHospital || '未指定';
+                if (!consumableByHospital[hospKey]) {
+                    consumableByHospital[hospKey] = { totalQty: 0, totalCost: 0, totalPrice: 0 };
+                }
+                const costs = calculateConsumableCosts(d.consumables);
+                consumableByHospital[hospKey].totalQty += d.consumables.reduce((s, c) => s + c.qty, 0);
+                consumableByHospital[hospKey].totalCost += costs.totalCost;
+                consumableByHospital[hospKey].totalPrice += costs.totalPrice;
             }
         });
 
-        return { completed, completedByEngineer, completedByClosed, pending, total, grandTotal: filteredHomeData.length, engineers, totalMaterialCost, totalMaterialRevenue, breakdowns };
+        // Build consumable type summary with costs
+        const consumableTypeSummary = CONSUMABLE_COLUMNS_CONFIG.map(cfg => {
+            const qty = consumableByType[cfg.partNo] || 0;
+            const costs = calculateConsumableCosts([{ partNo: cfg.partNo, qty }]);
+            return {
+                partNo: cfg.partNo,
+                displayName: cfg.displayName,
+                qty,
+                totalCost: costs.totalCost,
+                totalPrice: costs.totalPrice,
+            };
+        }).filter(item => item.qty > 0).sort((a, b) => b.qty - a.qty);
+
+        const consumableTotalQty = consumableTypeSummary.reduce((s, i) => s + i.qty, 0);
+        const consumableTotalCost = consumableTypeSummary.reduce((s, i) => s + i.totalCost, 0);
+        const consumableTotalPrice = consumableTypeSummary.reduce((s, i) => s + i.totalPrice, 0);
+
+        // Patient ranking by total qty
+        const consumablePatientRanking = Object.entries(consumableByPatient)
+            .map(([name, data]) => {
+                const costs = calculateConsumableCosts(data.consumables);
+                return { name, totalQty: data.totalQty, totalCost: costs.totalCost, totalPrice: costs.totalPrice, contract: data.contract };
+            })
+            .sort((a, b) => b.totalCost - a.totalCost || b.totalQty - a.totalQty);
+
+        // Hospital ranking
+        const consumableHospitalRanking = Object.entries(consumableByHospital)
+            .map(([name, data]) => ({ name, ...data }))
+            .sort((a, b) => b.totalCost - a.totalCost);
+
+        return {
+            completed, completedByEngineer, completedByClosed, pending, total,
+            grandTotal: filteredHomeData.length, engineers, breakdowns,
+            consumableTypeSummary, consumableTotalQty, consumableTotalCost, consumableTotalPrice,
+            consumablePatientRanking, consumableHospitalRanking
+        };
     }, [filteredHomeData]);
 
     // Data Processing for Hospital
@@ -463,6 +530,16 @@ export default function MaintenanceDashboard() {
                                         ))}
                                     </div>
                                 </div>
+                                <div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}>機種</div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                        {Object.entries(homeStats.breakdowns.machine).sort((a,b)=>b[1]-a[1]).map(([k, v]) => (
+                                            <span key={k} style={{ fontSize: '0.7rem', background: 'var(--color-surface)', border: '1px solid var(--color-border)', padding: '2px 8px', borderRadius: 12 }}>
+                                                {k}: <strong style={{ color: 'var(--color-primary)' }}>{v}</strong>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -588,24 +665,103 @@ export default function MaintenanceDashboard() {
                             )}
                         </div>
 
-                        {/* 耗材營收概況 */}
-                        {(homeStats.totalMaterialCost > 0 || homeStats.totalMaterialRevenue > 0) && (
+                        {/* 📦 本月耗材使用統計 */}
+                        {homeStats.consumableTypeSummary.length > 0 && (
                             <div style={{ marginTop: 24, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 8 }}>
-                                <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>💰 本月耗材成本與營收預估</h4>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>總成本</div>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-danger)' }}>
-                                            NT$ {homeStats.totalMaterialCost.toLocaleString()}
-                                        </div>
+                                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>📦 本月耗材使用統計</h4>
+
+                                {/* 總覽數字卡 */}
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 12, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>總使用數量</div>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-primary)' }}>{homeStats.consumableTotalQty}</div>
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>預估報價營收</div>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-success)' }}>
-                                            NT$ {homeStats.totalMaterialRevenue.toLocaleString()}
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 12, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>總成本</div>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-danger)' }}>NT$ {homeStats.consumableTotalCost.toLocaleString()}</div>
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 12, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>預估營收</div>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--color-success)' }}>NT$ {homeStats.consumableTotalPrice.toLocaleString()}</div>
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 12, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>毛利</div>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: 700, color: (homeStats.consumableTotalPrice - homeStats.consumableTotalCost) >= 0 ? '#10b981' : 'var(--color-danger)' }}>
+                                            NT$ {(homeStats.consumableTotalPrice - homeStats.consumableTotalCost).toLocaleString()}
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* 各耗材明細表 */}
+                                <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                                                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>耗材名稱</th>
+                                                <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>數量</th>
+                                                <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>成本小計</th>
+                                                <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>報價小計</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {homeStats.consumableTypeSummary.map((item, idx) => (
+                                                <tr key={idx} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                    <td style={{ padding: '6px 8px', fontWeight: 500 }}>
+                                                        {item.displayName}
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', marginLeft: 4 }}>({item.partNo})</span>
+                                                    </td>
+                                                    <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: 'var(--color-primary)' }}>{item.qty}</td>
+                                                    <td style={{ padding: '6px 8px', textAlign: 'right', color: item.totalCost > 0 ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>
+                                                        {item.totalCost > 0 ? `$${item.totalCost.toLocaleString()}` : '-'}
+                                                    </td>
+                                                    <td style={{ padding: '6px 8px', textAlign: 'right', color: item.totalPrice > 0 ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
+                                                        {item.totalPrice > 0 ? `$${item.totalPrice.toLocaleString()}` : '-'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* 個案耗材消耗排行 */}
+                                {homeStats.consumablePatientRanking.length > 0 && (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}>👤 個案耗材消耗排行 (Top 10)</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {homeStats.consumablePatientRanking.slice(0, 10).map((p, idx) => (
+                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--color-surface)', borderRadius: 6, border: '1px solid var(--color-border)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: idx < 3 ? '#f59e0b' : 'var(--color-text-secondary)', minWidth: 18 }}>#{idx + 1}</span>
+                                                        <span style={{ fontWeight: 600, fontSize: '0.8rem' }}>{p.name}</span>
+                                                        <span style={{ fontSize: '0.65rem', background: 'rgba(99,102,241,0.1)', color: '#6366f1', padding: '1px 6px', borderRadius: 4 }}>{p.contract}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: '0.75rem' }}>
+                                                        <span style={{ color: 'var(--color-text-secondary)' }}>數量: <strong style={{ color: 'var(--color-primary)' }}>{p.totalQty}</strong></span>
+                                                        {p.totalCost > 0 && <span style={{ color: 'var(--color-text-secondary)' }}>成本: <strong style={{ color: 'var(--color-danger)' }}>${p.totalCost.toLocaleString()}</strong></span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 院所別耗材統計 */}
+                                {homeStats.consumableHospitalRanking.length > 0 && (
+                                    <div>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: 8 }}>🏥 院所別耗材統計</div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                            {homeStats.consumableHospitalRanking.map((h, idx) => (
+                                                <div key={idx} style={{ padding: '8px 12px', background: 'var(--color-surface)', borderRadius: 6, border: '1px solid var(--color-border)', minWidth: 140 }}>
+                                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={h.name}>{h.name}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                                        <span>數量: <strong style={{ color: 'var(--color-primary)' }}>{h.totalQty}</strong></span>
+                                                        {h.totalCost > 0 && <span>成本: <strong style={{ color: 'var(--color-danger)' }}>${h.totalCost.toLocaleString()}</strong></span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
