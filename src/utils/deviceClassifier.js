@@ -80,6 +80,7 @@ export function getDeviceType(modelStr) {
   if (
     [
       "astral",
+      "astra",
       "stellar",
       "trilogy",
       "in2100",

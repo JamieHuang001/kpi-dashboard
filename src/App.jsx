@@ -849,7 +849,7 @@ export default function App() {
               )}
             </div>
           ) : activeSection === "maintenance" ? (
-            <MaintenanceDashboard displayCases={displayCases} />
+            <MaintenanceDashboard displayCases={displayCases} assetData={assetData} />
           ) : activeSection === "ai-chat" ? (
             <GeminiChat
               stats={stats}

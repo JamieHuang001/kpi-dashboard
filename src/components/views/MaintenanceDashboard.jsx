@@ -3,11 +3,19 @@ import { fetchMaintenanceMetadata, fetchHomeMaintenanceData, fetchHospitalMainte
 import { Doughnut, Bar } from 'react-chartjs-2';
 import { calculateConsumableCosts, CONSUMABLE_COLUMNS_CONFIG } from '../../utils/materialPricing';
 
-export default function MaintenanceDashboard() {
+// AssetAlertTables 共用的閒置判定常數
+const EXCLUDED_STATUSES = ['租購', '銷貨', '遺失', '帳物不符', '轉倉'];
+const EQUIPMENT_TYPES = [
+    { type: 'CPAP/BiPAP 呼吸器', keywords: ['Trilogy', 'CPAP', 'BiPAP', '呼吸', 'Astral', 'Astra', 'Lumis'] },
+    { type: '氧氣製造機', keywords: ['氧氣', 'EverFlo', 'AirSep', '製氧'] },
+];
+
+export default function MaintenanceDashboard({ assetData = [] }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [homeData, setHomeData] = useState([]);
     const [hospitalData, setHospitalData] = useState([]);
+    const [prevMonthHomeData, setPrevMonthHomeData] = useState([]);
     const [selectedHomeSheet, setSelectedHomeSheet] = useState(null);
     const [selectedHospitalSheet, setSelectedHospitalSheet] = useState(null);
     const [metadata, setMetadata] = useState(null);
@@ -48,6 +56,21 @@ export default function MaintenanceDashboard() {
                 if (selectedHomeSheet) {
                     const hData = await fetchHomeMaintenanceData(metadata.spreadsheetId, selectedHomeSheet.sheetId, selectedHomeSheet.title, apiKey);
                     if (mounted) setHomeData(hData);
+
+                    // Fetch previous month data for MoM comparison
+                    const currentIdx = metadata.homeSheets.findIndex(s => s.sheetId === selectedHomeSheet.sheetId);
+                    if (currentIdx >= 0 && currentIdx + 1 < metadata.homeSheets.length) {
+                        const prevSheet = metadata.homeSheets[currentIdx + 1];
+                        try {
+                            const prevData = await fetchHomeMaintenanceData(metadata.spreadsheetId, prevSheet.sheetId, prevSheet.title, apiKey);
+                            if (mounted) setPrevMonthHomeData(prevData);
+                        } catch (e) {
+                            console.warn('Failed to load previous month data:', e);
+                            if (mounted) setPrevMonthHomeData([]);
+                        }
+                    } else {
+                        if (mounted) setPrevMonthHomeData([]);
+                    }
                 }
                 if (selectedHospitalSheet) {
                     const hsData = await fetchHospitalMaintenanceData(metadata.spreadsheetId, selectedHospitalSheet.sheetId, selectedHospitalSheet.title, apiKey);
@@ -150,6 +173,7 @@ export default function MaintenanceDashboard() {
         const breakdowns = {
             status: {},
             contract: {},
+            contractType: {},
             hospital: {},
             region: {},
             machine: {}
@@ -159,12 +183,14 @@ export default function MaintenanceDashboard() {
         filteredHomeData.forEach(d => {
             const stat = d.sheetStatus || '未填';
             const cont = d.contract || '無合約';
+            const cType = d.contractType || '未分類';
             const hosp = d.homeHospital || '未指定';
             const reg = d.location || '未分區';
             const mac = d.machine || '未指定';
 
             breakdowns.status[stat] = (breakdowns.status[stat] || 0) + 1;
             breakdowns.contract[cont] = (breakdowns.contract[cont] || 0) + 1;
+            breakdowns.contractType[cType] = (breakdowns.contractType[cType] || 0) + 1;
             breakdowns.hospital[hosp] = (breakdowns.hospital[hosp] || 0) + 1;
             breakdowns.region[reg] = (breakdowns.region[reg] || 0) + 1;
             breakdowns.machine[mac] = (breakdowns.machine[mac] || 0) + 1;
@@ -249,6 +275,215 @@ export default function MaintenanceDashboard() {
             consumablePatientRanking, consumableHospitalRanking
         };
     }, [filteredHomeData]);
+
+    // Previous month breakdowns for MoM comparison
+    const prevMonthBreakdowns = useMemo(() => {
+        if (!prevMonthHomeData || prevMonthHomeData.length === 0) return null;
+        const bd = { status: {}, contract: {}, contractType: {}, hospital: {}, region: {}, machine: {} };
+        prevMonthHomeData.forEach(d => {
+            const stat = d.sheetStatus || '未填';
+            const cont = d.contract || '無合約';
+            const cType = d.contractType || '未分類';
+            const hosp = d.homeHospital || '未指定';
+            const reg = d.location || '未分區';
+            const mac = d.machine || '未指定';
+            bd.status[stat] = (bd.status[stat] || 0) + 1;
+            bd.contract[cont] = (bd.contract[cont] || 0) + 1;
+            bd.contractType[cType] = (bd.contractType[cType] || 0) + 1;
+            bd.hospital[hosp] = (bd.hospital[hosp] || 0) + 1;
+            bd.region[reg] = (bd.region[reg] || 0) + 1;
+            bd.machine[mac] = (bd.machine[mac] || 0) + 1;
+        });
+        return bd;
+    }, [prevMonthHomeData]);
+
+    // Month-over-month comparison
+    const momComparison = useMemo(() => {
+        if (!prevMonthBreakdowns || !homeStats.breakdowns) return null;
+        const categories = [
+            { key: 'contractType', label: '合約類型' },
+            { key: 'status', label: '狀態分佈' },
+            { key: 'contract', label: '合約分類' },
+            { key: 'region', label: '區域統計' },
+            { key: 'hospital', label: '醫療院所' },
+            { key: 'machine', label: '機種' },
+        ];
+        const result = {};
+        categories.forEach(({ key, label }) => {
+            const curr = homeStats.breakdowns[key] || {};
+            const prev = prevMonthBreakdowns[key] || {};
+            const allKeys = [...new Set([...Object.keys(curr), ...Object.keys(prev)])];
+            result[key] = {
+                label,
+                items: allKeys.map(k => {
+                    const c = curr[k] || 0;
+                    const p = prev[k] || 0;
+                    const delta = c - p;
+                    return { name: k, current: c, previous: p, delta };
+                }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || b.current - a.current)
+            };
+        });
+        return result;
+    }, [homeStats.breakdowns, prevMonthBreakdowns]);
+
+    // Previous month sheet name for display
+    const prevMonthSheetName = useMemo(() => {
+        if (!metadata || !selectedHomeSheet) return '';
+        const currentIdx = metadata.homeSheets.findIndex(s => s.sheetId === selectedHomeSheet.sheetId);
+        if (currentIdx >= 0 && currentIdx + 1 < metadata.homeSheets.length) {
+            return metadata.homeSheets[currentIdx + 1].title;
+        }
+        return '';
+    }, [metadata, selectedHomeSheet]);
+
+    // Equipment supply/demand comparison (rental in-use vs asset inventory idle)
+    const equipmentComparison = useMemo(() => {
+        if (!assetData || assetData.length === 0) return null;
+
+        // --- 設備家族正規化：將保養登記簿和財產總表的名稱統一到同一個家族 ---
+        const normalizeToFamily = (name) => {
+            const n = (name || '').toLowerCase().trim();
+            // Trilogy 系列 (T100 = Trilogy 100 = 1054096, Trilogy EVO/O2 可互換)
+            if (n.includes('t100') || n.includes('trilogy') || n === '1054096') return 'Trilogy 系列';
+            // Lumis 系列
+            if (n.includes('lumis') || n === '28226') return 'Lumis 系列';
+            // DreamStation 系列
+            if (n.includes('inx') || n.includes('dreamstation')) return 'DreamStation 系列';
+            // Astral 系列
+            if (n.includes('astral') || n.includes('astra') || n === '27082' || n === '27088') return 'Astral 系列';
+            // BiPAP A 系列
+            if (n.includes('bipap') || n === '1076491' || n === '1111169' || n === '1111143') return 'BiPAP A 系列';
+            // EverFlo 製氧機
+            if (n.includes('everflo') || n === '1020000') return 'EverFlo 製氧機';
+            // Airsep 系列
+            if (n.includes('airsep')) return 'Airsep 製氧機';
+            // 型號製氧機
+            if (n.includes('81型')) return '81型 製氧機';
+            if (n.includes('87型')) return '87型 製氧機';
+            if (n.includes('怡氧')) return '怡氧';
+            if (n.includes('10l') && (n.includes('穩壓') || n.includes('製氧'))) return '10L製氧穩壓器';
+            return name; // 未知設備保留原名
+        };
+
+        // Count rental equipment by family from home data (only 租賃, exclude 保養合約)
+        const rentalByFamily = {};
+        const rentalDetailByFamily = {}; // 記錄原始機型明細
+        let maintenanceContractCount = 0;
+        filteredHomeData.filter(d => !d.skip).forEach(d => {
+            const cType = (d.contractType || '').trim();
+            if (cType === '保養合約') {
+                maintenanceContractCount++;
+                return;
+            }
+            const mac = (d.machine || '').trim();
+            if (mac && mac !== '未指定') {
+                const family = normalizeToFamily(mac);
+                rentalByFamily[family] = (rentalByFamily[family] || 0) + 1;
+                if (!rentalDetailByFamily[family]) rentalDetailByFamily[family] = {};
+                rentalDetailByFamily[family][mac] = (rentalDetailByFamily[family][mac] || 0) + 1;
+            }
+        });
+
+        // Count idle equipment by family from asset data
+        const idleByFamily = {};
+        const idleDetailByFamily = {}; // 記錄原始型號明細
+        assetData.forEach(a => {
+            const company = (a.company || '').trim();
+            const s = (a.status || '').trim();
+            if (!company || company.includes('無帳') || company === '未知') return;
+            if (!['泰永', '永定', '富齡'].some(c => company.includes(c))) return;
+            if (EXCLUDED_STATUSES.some(es => s.includes(es))) return;
+
+            const productName = (a.productName || '').trim();
+            const name = `${productName} ${a.model || ''}`.toLowerCase();
+
+            const isExplicitIdle = ['閒置', '可用', '備機', '在庫', '庫存', '廠內', '測試用'].some(k => s.includes(k));
+            const loc = (a.location || '').trim();
+            const isImplicitIdle = ['正常', 'ok', ''].includes(s.toLowerCase()) && ['倉庫', '公司', '庫存', '廠內', ''].some(k => loc.includes(k));
+            const isIdle = isExplicitIdle || isImplicitIdle;
+
+            let matchedType = null;
+            for (const et of EQUIPMENT_TYPES) {
+                if (et.keywords.some(k => name.includes(k.toLowerCase()))) {
+                    matchedType = et.type;
+                    break;
+                }
+            }
+
+            if (isIdle && matchedType) {
+                const modelKey = a.model ? a.model.trim() : productName || '未知型號';
+                const exclusionList = ['evolution 3e', 'evolution3e', 'bipap synchrony', '1029759'];
+                if (!exclusionList.some(k => modelKey.toLowerCase().includes(k))) {
+                    const family = normalizeToFamily(`${productName} ${modelKey}`);
+                    idleByFamily[family] = (idleByFamily[family] || 0) + 1;
+                    if (!idleDetailByFamily[family]) idleDetailByFamily[family] = {};
+                    const displayName = productName ? `${modelKey} (${productName})` : modelKey;
+                    idleDetailByFamily[family][displayName] = (idleDetailByFamily[family][displayName] || 0) + 1;
+                }
+            }
+        });
+
+        // Build family-level comparison
+        const allFamilies = [...new Set([...Object.keys(rentalByFamily), ...Object.keys(idleByFamily)])];
+        const comparison = [];
+
+        allFamilies.forEach(family => {
+            const inUse = rentalByFamily[family] || 0;
+            const idle = idleByFamily[family] || 0;
+            const ratio = inUse > 0 ? ((idle / inUse) * 100) : (idle > 0 ? 999 : 0);
+            let status = '🟢';
+            let statusText = '充足';
+            if (ratio < 5) { status = '🔴'; statusText = idle === 0 ? '無備機' : '嚴重不足'; }
+            else if (ratio < 15) { status = '🟡'; statusText = '偏低'; }
+
+            // 自動生成結論
+            let conclusion = '';
+            if (inUse === 0 && idle > 0) {
+                conclusion = `目前無租賃使用，${idle} 台備機可調度支援其他需求`;
+            } else if (idle === 0 && inUse > 0) {
+                conclusion = `⚠️ ${inUse} 台全數使用中，無替換機可用，建議申請至少 ${Math.max(1, Math.ceil(inUse * 0.1))} 台`;
+            } else if (ratio >= 15) {
+                conclusion = `備機充足，${idle} 台可隨時調度替換`;
+            } else if (ratio >= 5) {
+                conclusion = `備機偏低，建議再申請 ${Math.max(1, Math.ceil(inUse * 0.15) - idle)} 台以達 15% 安全水位`;
+            } else {
+                conclusion = `備機嚴重不足，建議申請 ${Math.max(1, Math.ceil(inUse * 0.1) - idle)} 台`;
+            }
+
+            // 使用中明細
+            const rentalDetails = rentalDetailByFamily[family]
+                ? Object.entries(rentalDetailByFamily[family]).map(([k, v]) => `${k}(${v}台)`).join('、')
+                : '';
+            // 備機明細
+            const idleDetails = idleDetailByFamily[family]
+                ? Object.entries(idleDetailByFamily[family]).map(([k, v]) => `${k}(${v}台)`).join('、')
+                : '';
+
+            comparison.push({
+                family,
+                inUse,
+                idle,
+                ratio: ratio > 100 ? 100 : Math.round(ratio * 10) / 10,
+                status,
+                statusText,
+                conclusion,
+                rentalDetails,
+                idleDetails
+            });
+        });
+
+        comparison.sort((a, b) => {
+            // In-use items first, then sort by ratio ascending
+            if (a.inUse > 0 && b.inUse === 0) return -1;
+            if (a.inUse === 0 && b.inUse > 0) return 1;
+            return a.ratio - b.ratio;
+        });
+
+        const totalInUse = comparison.reduce((s, c) => s + c.inUse, 0);
+        const totalIdle = comparison.reduce((s, c) => s + c.idle, 0);
+
+        return { comparison, maintenanceContractCount, totalInUse, totalIdle };
+    }, [filteredHomeData, assetData]);
 
     // Data Processing for Hospital
     const hospitalStats = useMemo(() => {
@@ -542,6 +777,164 @@ export default function MaintenanceDashboard() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* 📈 月對月變化分析 */}
+                        {momComparison && (
+                            <div style={{ marginBottom: 20, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>📈 月對月變化分析</h4>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', background: 'var(--color-surface)', padding: '2px 8px', borderRadius: 4 }}>
+                                        對比：{prevMonthSheetName} → {selectedHomeSheet?.title || '本月'}
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>上月總數</div>
+                                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>{prevMonthHomeData.length}</div>
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>本月總數</div>
+                                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-primary)' }}>{homeStats.grandTotal}</div>
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>淨增減</div>
+                                        {(() => {
+                                            const d = homeStats.grandTotal - prevMonthHomeData.length;
+                                            return (
+                                                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: d > 0 ? '#10b981' : d < 0 ? '#ef4444' : 'var(--color-text-secondary)' }}>
+                                                    {d > 0 ? `▲ +${d}` : d < 0 ? `▼ ${d}` : '— 持平'}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                                {Object.entries(momComparison).map(([catKey, catData]) => {
+                                    const hasChanges = catData.items.some(i => i.delta !== 0);
+                                    if (!hasChanges && catData.items.length > 8) return null; // Skip unchanged large categories
+                                    return (
+                                        <div key={catKey} style={{ marginBottom: 12 }}>
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: 6, borderBottom: '1px dashed var(--color-border)', paddingBottom: 4 }}>
+                                                {catData.label}
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                {catData.items.map((item, idx) => {
+                                                    const deltaColor = item.delta > 0 ? '#10b981' : item.delta < 0 ? '#ef4444' : 'var(--color-text-secondary)';
+                                                    const deltaIcon = item.delta > 0 ? '▲' : item.delta < 0 ? '▼' : '—';
+                                                    return (
+                                                        <div key={idx} style={{
+                                                            fontSize: '0.7rem',
+                                                            background: item.delta !== 0 ? `${deltaColor}08` : 'var(--color-surface)',
+                                                            border: `1px solid ${item.delta !== 0 ? `${deltaColor}30` : 'var(--color-border)'}`,
+                                                            padding: '4px 10px',
+                                                            borderRadius: 8,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 6
+                                                        }}>
+                                                            <span style={{ fontWeight: 500 }}>{item.name}</span>
+                                                            <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.65rem' }}>{item.previous}</span>
+                                                            <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.6rem' }}>→</span>
+                                                            <strong style={{ color: 'var(--color-primary)' }}>{item.current}</strong>
+                                                            <span style={{ color: deltaColor, fontWeight: 700, fontSize: '0.68rem', marginLeft: 2 }}>
+                                                                {deltaIcon} {item.delta !== 0 ? (item.delta > 0 ? `+${item.delta}` : item.delta) : '持平'}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* 🔄 設備供需對比 */}
+                        {equipmentComparison && equipmentComparison.comparison.length > 0 && (
+                            <div style={{ marginBottom: 20, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>🔄 設備供需對比</h4>
+                                    <span style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)' }}>租賃使用中 vs 財產總表可用備機</span>
+                                </div>
+                                {equipmentComparison.maintenanceContractCount > 0 && (
+                                    <div style={{
+                                        fontSize: '0.72rem', color: '#6366f1', background: 'rgba(99,102,241,0.08)',
+                                        padding: '6px 10px', borderRadius: 6, marginBottom: 12,
+                                        borderLeft: '3px solid #6366f1'
+                                    }}>
+                                        ℹ️ 保養合約 <strong>{equipmentComparison.maintenanceContractCount}</strong> 案已排除（使用對方機器，不佔用公司設備）
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>租賃使用中</div>
+                                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--color-primary)' }}>{equipmentComparison.totalInUse} <span style={{ fontSize: '0.7rem' }}>台</span></div>
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>可用備機</div>
+                                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#10b981' }}>{equipmentComparison.totalIdle} <span style={{ fontSize: '0.7rem' }}>台</span></div>
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 100, background: 'var(--color-surface)', padding: 10, borderRadius: 8, textAlign: 'center', border: '1px solid var(--color-border)' }}>
+                                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>整體備機比率</div>
+                                        {(() => {
+                                            const r = equipmentComparison.totalInUse > 0 ? ((equipmentComparison.totalIdle / equipmentComparison.totalInUse) * 100) : 0;
+                                            const color = r < 5 ? '#ef4444' : r < 15 ? '#f59e0b' : '#10b981';
+                                            return <div style={{ fontSize: '1.2rem', fontWeight: 700, color }}>{r.toFixed(1)}%</div>;
+                                        })()}
+                                    </div>
+                                </div>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                                                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>設備家族</th>
+                                                <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>租賃使用中</th>
+                                                <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>可用備機</th>
+                                                <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>備機比率</th>
+                                                <th style={{ textAlign: 'center', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>狀態</th>
+                                                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--color-text-secondary)' }}>結論與建議</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {equipmentComparison.comparison.filter(c => c.inUse > 0 || c.idle > 0).map((c, idx) => (
+                                                <tr key={idx} style={{ borderBottom: '1px solid var(--color-border)', verticalAlign: 'top' }}>
+                                                    <td style={{ padding: '8px 8px' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--color-text)' }}>{c.family}</div>
+                                                        {c.rentalDetails && (
+                                                            <div style={{ fontSize: '0.6rem', color: 'var(--color-text-secondary)', marginTop: 3, lineHeight: 1.4 }}>
+                                                                使用中：{c.rentalDetails}
+                                                            </div>
+                                                        )}
+                                                        {c.idleDetails && (
+                                                            <div style={{ fontSize: '0.6rem', color: '#10b981', marginTop: 2, lineHeight: 1.4 }}>
+                                                                備機：{c.idleDetails}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ padding: '8px 8px', textAlign: 'right', fontWeight: 600, color: c.inUse > 0 ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>{c.inUse}</td>
+                                                    <td style={{ padding: '8px 8px', textAlign: 'right', fontWeight: 600, color: c.idle > 0 ? '#10b981' : 'var(--color-text-secondary)' }}>{c.idle}</td>
+                                                    <td style={{ padding: '8px 8px', textAlign: 'right', fontWeight: 600, color: c.ratio < 5 ? '#ef4444' : c.ratio < 15 ? '#f59e0b' : '#10b981' }}>
+                                                        {c.inUse > 0 ? `${c.ratio}%` : (c.idle > 0 ? '純備機' : '-')}
+                                                    </td>
+                                                    <td style={{ padding: '8px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                        <span style={{ fontSize: '0.9rem' }}>{c.status}</span>
+                                                        <span style={{ fontSize: '0.65rem', marginLeft: 4, color: c.ratio < 5 ? '#ef4444' : c.ratio < 15 ? '#f59e0b' : '#10b981' }}>{c.statusText}</span>
+                                                    </td>
+                                                    <td style={{ padding: '8px 8px', fontSize: '0.68rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                                                        {c.conclusion}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style={{ marginTop: 10, fontSize: '0.68rem', color: 'var(--color-text-secondary)', padding: '8px 10px', background: 'rgba(99,102,241,0.05)', borderRadius: 6, lineHeight: 1.6 }}>
+                                    💡 <strong>備機比率</strong> = 可用備機 ÷ 租賃使用中 × 100%<br />
+                                    🟢 ≥15% 充足 &nbsp; 🟡 5~15% 偏低 &nbsp; 🔴 &lt;5% 建議向公司申請設備<br />
+                                    <span style={{ opacity: 0.7 }}>備機用途：當租賃機器回收維修時，有足夠的替換機可以即時調度出貨</span><br />
+                                    <span style={{ opacity: 0.7 }}>⚙️ 同系列設備可互相替代（如 Trilogy EVO/EVO O2 可當 T100 備機）</span>
+                                </div>
+                            </div>
+                        )}
 
                         {/* 計算邏輯說明 - 可收合 */}
                         <div style={{ marginBottom: 20 }}>

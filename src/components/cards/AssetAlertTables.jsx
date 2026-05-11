@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import DetailModal from "../common/DetailModal";
+
+const SNAPSHOT_KEY = 'kpi-equipment-snapshot';
 
 const EXCLUDED_STATUSES = ["租購", "銷貨", "遺失", "帳物不符", "轉倉"];
 const EQUIPMENT_TYPES = [
   {
     type: "CPAP/BiPAP 呼吸器",
-    keywords: ["Trilogy", "CPAP", "BiPAP", "呼吸", "Astral", "Lumis"],
+    keywords: ["Trilogy", "CPAP", "BiPAP", "呼吸", "Astral", "Astra", "Lumis"],
   },
   {
     type: "氧氣製造機",
@@ -103,6 +105,58 @@ export function AssetAlertTables({ assetData }) {
     return { dispatchableList, totalDispatchable, unregistered };
   }, [assetData]);
 
+  // localStorage snapshot for MoM comparison
+  const prevSnapshot = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(SNAPSHOT_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch { return null; }
+  }, []);
+
+  const deltaMap = useMemo(() => {
+    if (!stats || !prevSnapshot?.data) return {};
+    const result = {};
+    Object.entries(stats.dispatchableList).forEach(([type, models]) => {
+      const prevType = prevSnapshot.data[type] || {};
+      const allModels = new Set([...Object.keys(models), ...Object.keys(prevType)]);
+      allModels.forEach(model => {
+        const curr = models[model]?.length || 0;
+        const prev = prevType[model] || 0;
+        result[`${type}|${model}`] = { curr, prev, delta: curr - prev };
+      });
+    });
+    return result;
+  }, [stats, prevSnapshot]);
+
+  const typeDelta = useMemo(() => {
+    if (!stats || !prevSnapshot?.data) return {};
+    const result = {};
+    Object.entries(stats.dispatchableList).forEach(([type, models]) => {
+      const currTotal = Object.values(models).reduce((s, items) => s + items.length, 0);
+      const prevTotal = Object.values(prevSnapshot.data[type] || {}).reduce((s, v) => s + v, 0);
+      result[type] = { curr: currTotal, prev: prevTotal, delta: currTotal - prevTotal };
+    });
+    return result;
+  }, [stats, prevSnapshot]);
+
+  // Save current snapshot (once per month)
+  useEffect(() => {
+    if (!stats || stats.totalDispatchable === 0) return;
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (prevSnapshot?.month === currentMonth) return; // Already saved this month
+
+    const data = {};
+    Object.entries(stats.dispatchableList).forEach(([type, models]) => {
+      data[type] = {};
+      Object.entries(models).forEach(([model, items]) => {
+        data[type][model] = items.length;
+      });
+    });
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ month: currentMonth, data }));
+  }, [stats, prevSnapshot]);
+
   const openModal = (type, title, colorHex, itemsArr) => {
     setModalData({
       type,
@@ -125,6 +179,11 @@ export function AssetAlertTables({ assetData }) {
             <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                主要是呼吸器與氧氣機之閒置 / 在庫 / 可用數量
             </span>
+            {prevSnapshot && (
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+                對比：{prevSnapshot.month}
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {Object.entries(stats.dispatchableList).map(([type, models]) => {
@@ -136,6 +195,7 @@ export function AssetAlertTables({ assetData }) {
                 (acc, curr) => acc + curr[1].length,
                 0,
               );
+              const td = typeDelta[type];
               return (
                 <div
                   key={type}
@@ -145,39 +205,68 @@ export function AssetAlertTables({ assetData }) {
                     <span className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>
                       {type}
                     </span>
-                    <span className="text-sm font-extrabold" style={{ color: 'var(--color-accent-light)' }}>
-                      共 {totalForType} 台
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-extrabold" style={{ color: 'var(--color-accent-light)' }}>
+                        共 {totalForType} 台
+                      </span>
+                      {td && td.delta !== 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{
+                          background: td.delta > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                          color: td.delta > 0 ? '#10b981' : '#ef4444'
+                        }}>
+                          {td.delta > 0 ? `▲+${td.delta}` : `▼${td.delta}`}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col gap-2">
-                    {modelEntries.map(([model, items]) => (
-                      <div
-                        key={model}
-                        className="flex justify-between items-center text-xs px-3 py-2 rounded-md" style={{ background: 'var(--color-bg)' }}
-                      >
-                        <span className="font-semibold" style={{ color: 'var(--color-text)' }}>
-                          {model}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold px-2 py-0.5 rounded-full" style={{ color: 'var(--color-accent-light)', background: 'var(--color-surface-alt)' }}>
-                            {items.length} 台
-                          </span>
-                          <button
-                            onClick={() =>
-                              openModal(
-                                "idle",
-                                `${model} 閒置名單`,
-                                "#8b5cf6",
-                                items,
-                              )
-                            }
-                            className="border rounded px-2 py-0.5 text-[10px] transition" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                          >
-                            查看
-                          </button>
+                    {modelEntries.map(([model, items]) => {
+                      const productName = items[0]?.productName || '';
+                      const md = deltaMap[`${type}|${model}`];
+                      return (
+                        <div
+                          key={model}
+                          className="flex justify-between items-center text-xs px-3 py-2 rounded-md" style={{ background: 'var(--color-bg)' }}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-semibold" style={{ color: 'var(--color-text)' }}>
+                              {model}
+                            </span>
+                            {productName && (
+                              <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)', marginTop: 1 }}>
+                                {productName}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold px-2 py-0.5 rounded-full" style={{ color: 'var(--color-accent-light)', background: 'var(--color-surface-alt)' }}>
+                              {items.length} 台
+                            </span>
+                            {md && md.delta !== 0 && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{
+                                background: md.delta > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+                                color: md.delta > 0 ? '#10b981' : '#ef4444'
+                              }}>
+                                {md.delta > 0 ? `+${md.delta}` : md.delta}
+                              </span>
+                            )}
+                            <button
+                              onClick={() =>
+                                openModal(
+                                  "idle",
+                                  `${model} 閒置名單`,
+                                  "#8b5cf6",
+                                  items,
+                                )
+                              }
+                              className="border rounded px-2 py-0.5 text-[10px] transition" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                            >
+                              查看
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );

@@ -458,6 +458,7 @@ export async function fetchHomeMaintenanceData(spreadsheetId, sheetId, title, ap
             materialCosts: materials,
             consumables, // 結構化耗材數量
             sheetStatus: cells[0]?.formattedValue || '', // A欄: 狀態
+            contractType: cells[1]?.formattedValue || '', // B欄: 合約類型 (保養合約/租賃)
             homeHospital: cells[5]?.formattedValue || '' // F欄: 醫療院所
         });
     }
