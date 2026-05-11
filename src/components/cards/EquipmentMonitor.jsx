@@ -59,7 +59,7 @@ const EQUIPMENT_TYPES = [
   { type: "其他設備", icon: "🔧", keywords: [] },
 ];
 
-const EXCLUDED_STATUSES = ["租購", "銷貨", "遺失", "帳物不符", "轉倉"];
+const EXCLUDED_STATUSES = ["租購", "銷貨", "轉倉"];
 
 function ProgressBar({ value, color }) {
   const pct = Math.min((value / 100) * 100, 100);
@@ -139,11 +139,12 @@ export const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
         ...et,
         total: 0,
         ok: 0,
+        pendingRepair: 0,
         repair: 0,
         testing: 0,
         abnormal: 0,
         idle: 0,
-        items: { ok: [], repair: [], testing: [], abnormal: [], idle: [] },
+        items: { ok: [], pendingRepair: [], repair: [], testing: [], abnormal: [], idle: [] },
       };
     });
 
@@ -157,21 +158,15 @@ export const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
 
     assetData.forEach((a) => {
       const company = (a.company || "").trim();
-      if (
-        company &&
-        !["泰永", "永定", "富齡", "無帳"].some((c) => company.includes(c))
-      ) {
+      const validCompanies = ["永定", "泰永", "客服部", "無帳", "瑞思邁"];
+      if (!validCompanies.some((c) => company.includes(c))) {
+        unregistered.total++;
+        unregistered.items.push(a);
         return;
       }
 
       const s = (a.status || "").trim();
       if (EXCLUDED_STATUSES.some((es) => s.includes(es))) {
-        return;
-      }
-
-      if (!company || company.includes("無帳") || company === "未知") {
-        unregistered.total++;
-        unregistered.items.push(a);
         return;
       }
 
@@ -207,15 +202,19 @@ export const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
             categorized[et.type].total++;
             matchedType = et.type;
 
-            if (["待維修", "維修中"].includes(s)) {
+            if (s.includes("待維修")) {
+              categorized[et.type].pendingRepair++;
+              categorized[et.type].items.pendingRepair.push(a);
+            } else if (s.includes("維修中")) {
               categorized[et.type].repair++;
               categorized[et.type].items.repair.push(a);
-            } else if (["待測", "測試中"].includes(s)) {
+            } else if (["待測", "測試中"].some(k => s.includes(k))) {
               categorized[et.type].testing++;
               categorized[et.type].items.testing.push(a);
-            } else if (["找不到", "報廢", "故障"].includes(s)) {
+            } else if (["找不到", "報廢", "故障", "待報廢", "遺失", "帳物不符"].some(k => s.includes(k))) {
               categorized[et.type].abnormal++;
               categorized[et.type].items.abnormal.push(a);
+              categorized[et.type].total--; // 排除於納管總數
             } else {
               categorized[et.type].ok++;
               categorized[et.type].items.ok.push(a);
@@ -230,7 +229,10 @@ export const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                 "測試中",
                 "找不到",
                 "報廢",
+                "待報廢",
                 "故障",
+                "遺失",
+                "帳物不符",
               ].some((k) => s.includes(k))
             ) {
               categorized[et.type].idle++;
@@ -246,15 +248,19 @@ export const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
       if (!matched) {
         categorized["其他設備"].total++;
         matchedType = "其他設備";
-        if (["待維修", "維修中"].includes(s)) {
+        if (s.includes("待維修")) {
+          categorized["其他設備"].pendingRepair++;
+          categorized["其他設備"].items.pendingRepair.push(a);
+        } else if (s.includes("維修中")) {
           categorized["其他設備"].repair++;
           categorized["其他設備"].items.repair.push(a);
-        } else if (["待測", "測試中"].includes(s)) {
+        } else if (["待測", "測試中"].some(k => s.includes(k))) {
           categorized["其他設備"].testing++;
           categorized["其他設備"].items.testing.push(a);
-        } else if (["找不到", "報廢", "故障"].includes(s)) {
+        } else if (["找不到", "報廢", "故障", "待報廢", "遺失", "帳物不符"].some(k => s.includes(k))) {
           categorized["其他設備"].abnormal++;
           categorized["其他設備"].items.abnormal.push(a);
+          categorized["其他設備"].total--; // 排除於納管總數
         } else {
           categorized["其他設備"].ok++;
           categorized["其他設備"].items.ok.push(a);
@@ -346,20 +352,22 @@ export const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
           </div>
         </div>
 
-        <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {["ok", "repair", "testing", "abnormal"].map((statusKey) => {
+        <div className="flex-1 grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {["ok", "pendingRepair", "repair", "testing", "abnormal"].map((statusKey) => {
             let total = 0;
             Object.values(stats.categorized).forEach(
               (c) => (total += c[statusKey]),
             );
             const labels = {
               ok: "正常/可用",
+              pendingRepair: "待維修",
               repair: "維修中",
               testing: "測試中",
               abnormal: "報廢/遺失",
             };
             const colors = {
               ok: "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+              pendingRepair: "border-orange-400 bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400",
               repair:
                 "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400",
               testing:
@@ -382,11 +390,13 @@ export const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
                     `全區 ${labels[statusKey]} 清單`,
                     statusKey === "ok"
                       ? "#10b981"
-                      : statusKey === "repair"
-                        ? "#f59e0b"
-                        : statusKey === "testing"
-                          ? "#3b82f6"
-                          : "#ef4444",
+                      : statusKey === "pendingRepair"
+                        ? "#fb923c"
+                        : statusKey === "repair"
+                          ? "#f59e0b"
+                          : statusKey === "testing"
+                            ? "#3b82f6"
+                            : "#ef4444",
                     allItems,
                   )
                 }
@@ -414,6 +424,7 @@ export const EquipmentMonitor = memo(function EquipmentMonitor({ assetData }) {
             const pct = cat.total > 0 ? (cat.ok / cat.total) * 100 : 0;
             const allItems = [
               ...cat.items.ok,
+              ...cat.items.pendingRepair,
               ...cat.items.repair,
               ...cat.items.testing,
               ...cat.items.abnormal,
