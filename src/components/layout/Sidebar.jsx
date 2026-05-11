@@ -40,7 +40,7 @@ export default function Sidebar({ activeSection, onNavigate, isOpen, onClose }) 
                         }}>YD</div>
                         <div>
                             <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)', lineHeight: 1.2 }}>永定生物科技</div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>技術部 BI Dashboard</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>工程部 BI Dashboard</div>
                         </div>
                     </div>
                 </div>

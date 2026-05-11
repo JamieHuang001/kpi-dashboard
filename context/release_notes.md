@@ -1,3 +1,22 @@
+# 🔥 v6.2.1 更新日誌
+
+發佈日期：2026-05-11
+
+本次 v6.2.1 版本主要修正了 PDF 報表匯出時的檔名未自動帶入最新版本號的問題，並統一修正了介面中顯示的部門名稱。
+
+## ✨ 新增功能與錯誤修正 (Features & Bug Fixes)
+- **PDF 匯出檔名動態連動**：修改應用程式根目錄的標題邏輯，現在透過瀏覽器或工具匯出 PDF 時，檔名會自動帶入最新的應用程式版號 (例如：`永定生物科技 - 工程部 KPI 儀表板 V6.2.1.pdf`)。
+- **介面文字優化**：將應用程式中所有的「技術部」文字修正為「工程部」，包含首頁標題、側邊欄、以及數據分析卡片內的洞察文字，確保部門名稱顯示正確。
+
+## 📁 異動檔案 (Changed Files)
+- `index.html` — 修正靜態網頁標題及 Meta Description
+- `src/App.jsx` — 實作 `document.title` 動態版號更新邏輯，並修正介面文字
+- `src/components/layout/Sidebar.jsx` — 修正側邊欄部門名稱文字
+- `src/components/cards/ComparativeAnalytics.jsx` — 修正分析洞察文字
+- `src/config/version.js` — 版本號更新至 6.2.1
+
+---
+
 # 🔥 v6.2.0 更新日誌
 
 發佈日期：2026-05-11

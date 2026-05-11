@@ -77,6 +77,10 @@ export default function App() {
     recalculate();
   }, [recalculate]);
 
+  useEffect(() => {
+    document.title = `永定生物科技 - 工程部 KPI 儀表板 ${APP_VERSION_DISPLAY}`;
+  }, []);
+
   const handleNavigate = (id) => {
     setActiveSection(id);
     setTimeout(() => {
@@ -755,7 +759,7 @@ export default function App() {
                   color: "var(--color-text)",
                 }}
               >
-                永定生物科技 技術部 KPI 儀表板
+                永定生物科技 工程部 KPI 儀表板
               </h1>
               <p
                 style={{

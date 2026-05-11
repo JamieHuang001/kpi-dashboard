@@ -38,14 +38,14 @@ export default function ComparativeAnalytics({ historicalStats }) {
         } else if (mom.deltas.cases > 0 && mom.deltas.grossMargin < 0) {
             insights.push(`⚠️ **做白工警訊**：儘管完修量較上期增加 ${mom.deltas.cases}%，但毛利卻衰退了 ${Math.abs(mom.deltas.grossMargin)}%。這可能是因為近期處理了大量低毛利或保固內（不收費卻耗材）的案件。建議檢視『一般維修』的零件成本耗損或是檢討特定合約的 SLA。`);
         } else if (yoy.deltas.grossMargin > 15) {
-            insights.push(`🌟 **年度獲利飛躍**：相較於去年同期，毛利大幅成長了 ${yoy.deltas.grossMargin}%！這顯示技術部整體的維修量能與產值有結構性的突破，或者本季度有大型過保機器進場維護。`);
+            insights.push(`🌟 **年度獲利飛躍**：相較於去年同期，毛利大幅成長了 ${yoy.deltas.grossMargin}%！這顯示工程部整體的維修量能與產值有結構性的突破，或者本季度有大型過保機器進場維護。`);
         }
 
         // 2. Efficiency (TAT & SLA)
         if (mom.deltas.avgTat > 10 || mom.deltas.slaRate > 5) {
             insights.push(`🚨 **產能瓶頸浮現**：與上期相比，平均處理天數（TAT）增加了 ${mom.deltas.avgTat}%，且 SLA 超標率上升了 ${mom.deltas.slaRate}%。這通常意味著現場工程師的 Loading 過重、待料時間過長、或是近期收到了大量『困難維修』。建議主管即刻檢視【工程師工作量矩陣】，進行人力與排程的重分配。`);
         } else if (mom.deltas.avgTat < -5 && mom.deltas.slaRate < 0) {
-            insights.push(`⚡ **效率巨幅優化**：本期平均完修天數（TAT）縮短了 ${Math.abs(mom.deltas.avgTat)}%，且 SLA 超標情形也有所改善。技術部的流轉率正在處於極佳狀態。`);
+            insights.push(`⚡ **效率巨幅優化**：本期平均完修天數（TAT）縮短了 ${Math.abs(mom.deltas.avgTat)}%，且 SLA 超標情形也有所改善。工程部的流轉率正在處於極佳狀態。`);
         }
 
         if (insights.length === 0) {
