@@ -1,7 +1,9 @@
 import React, { useMemo, useState, useEffect } from "react";
 import DetailModal from "../common/DetailModal";
+import defaultMapping from "../../config/deviceMapping.json";
 
 const SNAPSHOT_KEY = 'kpi-equipment-snapshot';
+const CUSTOM_MAPPING_KEY = 'kpi-equipment-custom-mapping';
 
 const EXCLUDED_STATUSES = ["租購", "銷貨", "遺失", "帳物不符", "轉倉"];
 const EQUIPMENT_TYPES = [
@@ -18,6 +20,42 @@ const EQUIPMENT_TYPES = [
 export function AssetAlertTables({ assetData }) {
   const [modalData, setModalData] = useState(null);
   const [unregCollapsed, setUnregCollapsed] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [customMapping, setCustomMapping] = useState(() => {
+    try {
+      const local = JSON.parse(localStorage.getItem(CUSTOM_MAPPING_KEY)) || {};
+      return { ...defaultMapping, ...local };
+    } catch {
+      return defaultMapping || {};
+    }
+  });
+
+  const saveCustomMapping = (newMapping) => {
+    setCustomMapping(newMapping);
+    localStorage.setItem(CUSTOM_MAPPING_KEY, JSON.stringify(newMapping));
+  };
+
+  const modelInfoMap = useMemo(() => {
+    if (!assetData) return {};
+    const map = {};
+    assetData.forEach(a => {
+      const company = (a.company || "").trim();
+      if (company && !["泰永", "永定", "富齡"].some((c) => company.includes(c))) return;
+      if (EXCLUDED_STATUSES.some((es) => (a.status || "").trim().includes(es))) return;
+      
+      const modelKey = a.model ? a.model.trim() : (a.productName || "未知型號").trim();
+      if (!modelKey) return;
+      if (!map[modelKey]) {
+        map[modelKey] = {
+          modelKey,
+          productName: a.productName || "",
+          count: 0
+        };
+      }
+      map[modelKey].count++;
+    });
+    return map;
+  }, [assetData]);
 
   const stats = useMemo(() => {
     if (!assetData || assetData.length === 0) return null;
@@ -70,13 +108,32 @@ export function AssetAlertTables({ assetData }) {
       const isIdle = isExplicitIdle || isImplicitIdle;
 
       let matchedType = null;
-      for (const et of EQUIPMENT_TYPES) {
-        if (
-          et.keywords.length > 0 &&
-          et.keywords.some((k) => name.includes(k.toLowerCase()))
-        ) {
-          matchedType = et.type;
-          break;
+      const modelKey = a.model ? a.model.trim() : (a.productName || "未知型號").trim();
+      
+      if (customMapping[modelKey]) {
+        if (customMapping[modelKey] === "隱藏") {
+          matchedType = null;
+        } else {
+          matchedType = customMapping[modelKey];
+        }
+      } else {
+        for (const et of EQUIPMENT_TYPES) {
+          if (
+            et.keywords.length > 0 &&
+            et.keywords.some((k) => name.includes(k.toLowerCase()))
+          ) {
+            matchedType = et.type;
+            break;
+          }
+        }
+        const exclusionList = [
+          "evolution 3e",
+          "evolution3e",
+          "bipap synchrony",
+          "1029759",
+        ];
+        if (exclusionList.some((k) => modelKey.toLowerCase().includes(k))) {
+          matchedType = null;
         }
       }
 
@@ -84,26 +141,15 @@ export function AssetAlertTables({ assetData }) {
         isIdle &&
         (matchedType === "CPAP/BiPAP 呼吸器" || matchedType === "氧氣製造機")
       ) {
-        const modelKey = a.model
-          ? a.model.trim()
-          : (a.productName || "未知型號").trim();
-        const exclusionList = [
-          "evolution 3e",
-          "evolution3e",
-          "bipap synchrony",
-          "1029759",
-        ];
-        if (!exclusionList.some((k) => modelKey.toLowerCase().includes(k))) {
-          if (!dispatchableList[matchedType][modelKey])
-            dispatchableList[matchedType][modelKey] = [];
-          dispatchableList[matchedType][modelKey].push(a);
-          totalDispatchable++;
-        }
+        if (!dispatchableList[matchedType][modelKey])
+          dispatchableList[matchedType][modelKey] = [];
+        dispatchableList[matchedType][modelKey].push(a);
+        totalDispatchable++;
       }
     });
 
     return { dispatchableList, totalDispatchable, unregistered };
-  }, [assetData]);
+  }, [assetData, customMapping]);
 
   // localStorage snapshot for MoM comparison
   const prevSnapshot = useMemo(() => {
@@ -176,11 +222,18 @@ export function AssetAlertTables({ assetData }) {
             <div className="px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm" style={{ background: 'var(--color-accent)', color: 'white' }}>
               📦 業務端可調度設備
             </div>
-            <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="px-2 py-1 rounded-md text-xs font-bold border transition hover:opacity-80"
+              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+            >
+              ⚙️ 分類設定
+            </button>
+            <span className="text-xs font-medium hidden md:inline" style={{ color: 'var(--color-text-secondary)' }}>
                主要是呼吸器與氧氣機之閒置 / 在庫 / 可用數量
             </span>
             {prevSnapshot && (
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded ml-auto" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
                 對比：{prevSnapshot.month}
               </span>
             )}
@@ -412,6 +465,98 @@ export function AssetAlertTables({ assetData }) {
             </table>
           </div>
         )}
+      </DetailModal>
+
+      <DetailModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        title="⚙️ 設備分類設定"
+      >
+        <div className="p-3 mb-4 text-xs flex flex-col gap-2" style={{ color: 'var(--color-text-secondary)', background: 'var(--color-surface-alt)', borderRadius: 8 }}>
+          <p>在這裡您可以手動指定設備型號應該歸類到哪一個區域，覆蓋系統預設的關鍵字判斷規則。</p>
+          <div className="flex items-center gap-2 mt-1">
+            <button
+              onClick={() => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(customMapping, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", "deviceMapping.json");
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+              }}
+              className="px-3 py-1.5 rounded-md font-bold text-xs shadow-sm transition hover:opacity-80"
+              style={{ background: 'var(--color-accent)', color: 'white' }}
+            >
+              💾 下載設定檔 (deviceMapping.json)
+            </button>
+            <span className="text-[10px]">
+              若要讓此分類永久生效 (如上傳至 GitHub)，請點擊下載並覆蓋專案內的 `src/config/deviceMapping.json`。
+            </span>
+          </div>
+        </div>
+        <div className="overflow-x-auto pb-4 max-h-[60vh]">
+          <table className="w-full text-left text-xs sm:text-sm whitespace-nowrap">
+            <thead>
+              <tr className="border-b-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+                <th className="px-3 py-3 object-left font-bold top-0 sticky" style={{ background: 'var(--color-surface)' }}>型號 (Model)</th>
+                <th className="px-3 py-3 object-left font-bold top-0 sticky" style={{ background: 'var(--color-surface)' }}>產品名稱參考</th>
+                <th className="px-3 py-3 object-left font-bold top-0 sticky" style={{ background: 'var(--color-surface)' }}>總數量</th>
+                <th className="px-3 py-3 object-left font-bold top-0 sticky" style={{ background: 'var(--color-surface)' }}>手動分類設定</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
+              {Object.values(modelInfoMap)
+                .sort((a, b) => b.count - a.count)
+                .map((info) => {
+                  const name = `${info.productName} ${info.modelKey}`.toLowerCase();
+                  let defaultType = "隱藏 (不顯示)";
+                  for (const et of EQUIPMENT_TYPES) {
+                    if (et.keywords.length > 0 && et.keywords.some((k) => name.includes(k.toLowerCase()))) {
+                      defaultType = et.type;
+                      break;
+                    }
+                  }
+                  const exclusionList = ["evolution 3e", "evolution3e", "bipap synchrony", "1029759"];
+                  if (exclusionList.some((k) => info.modelKey.toLowerCase().includes(k))) {
+                    defaultType = "隱藏 (不顯示)";
+                  }
+
+                  const currentValue = customMapping[info.modelKey] || "default";
+
+                  return (
+                    <tr key={info.modelKey} className="transition" style={{ color: 'var(--color-text)' }}>
+                      <td className="px-3 py-3 font-semibold">{info.modelKey}</td>
+                      <td className="px-3 py-3" style={{ color: 'var(--color-text-secondary)' }}>{info.productName}</td>
+                      <td className="px-3 py-3 text-center">{info.count}</td>
+                      <td className="px-3 py-3">
+                        <select
+                          className="border rounded px-2 py-1 bg-transparent text-xs"
+                          style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                          value={currentValue}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const newMap = { ...customMapping };
+                            if (val === "default") {
+                              delete newMap[info.modelKey];
+                            } else {
+                              newMap[info.modelKey] = val;
+                            }
+                            saveCustomMapping(newMap);
+                          }}
+                        >
+                          <option value="default">預設 ({defaultType})</option>
+                          <option value="CPAP/BiPAP 呼吸器">CPAP/BiPAP 呼吸器</option>
+                          <option value="氧氣製造機">氧氣製造機</option>
+                          <option value="隱藏">隱藏 (不顯示)</option>
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
       </DetailModal>
     </div>
   );
