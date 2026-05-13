@@ -368,17 +368,17 @@ export const RiskManagement = memo(function RiskManagement({ stats, cases: filte
 
   return (
     <>
-      <div className="flex flex-col h-full rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 shadow-xl relative overflow-hidden">
+      <div className="flex flex-col h-full rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 shadow-xl relative overflow-hidden print-avoid-break print:!bg-white print:!from-white print:!to-white print:!text-slate-900 print:!border print:!border-slate-300 print:!shadow-none">
         {/* Background decoration */}
         <div className="absolute -right-16 -top-16 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="flex items-center gap-3 mb-6 relative z-10">
-          <div className="bg-slate-800/80 p-2 rounded-lg backdrop-blur-sm border border-slate-700 shadow-sm">
+          <div className="bg-slate-800/80 p-2 rounded-lg backdrop-blur-sm border border-slate-700 shadow-sm print:!bg-slate-100 print:!border-slate-300">
             ⚠️
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-100">
+            <h3 className="text-base font-bold text-slate-100 print:!text-slate-900">
               營運風險監控 (Operations Risk)
             </h3>
             <p className="text-xs text-slate-400 mt-1">三大核准防線狀態燈號 · 點擊卡片查看細節</p>
@@ -401,11 +401,11 @@ export const RiskManagement = memo(function RiskManagement({ stats, cases: filte
             return (
               <div
                 key={metric.key}
-                className="flex flex-col items-center bg-slate-800/50 backdrop-blur-md rounded-xl p-5 border border-slate-700/50 hover:bg-slate-700/60 hover:border-slate-500/60 transition-all duration-200 cursor-pointer group"
+                className="flex flex-col items-center bg-slate-800/50 backdrop-blur-md rounded-xl p-5 border border-slate-700/50 hover:bg-slate-700/60 hover:border-slate-500/60 transition-all duration-200 cursor-pointer group print:!bg-white print:!border-slate-300 print:!shadow-none"
                 onClick={() => setDetailMetric(metric)}
                 title="點擊查看計算細節"
               >
-                <span className="text-sm font-bold text-slate-200 mb-1">
+                <span className="text-sm font-bold text-slate-200 mb-1 print:!text-slate-900">
                   {metric.icon} {metric.label}
                 </span>
                 <div className={`mt-2 mb-4 px-3 py-1 rounded-full text-[10px] font-bold border ${bgStatus}`}>

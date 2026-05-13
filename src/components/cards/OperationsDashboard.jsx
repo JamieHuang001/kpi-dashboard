@@ -19,9 +19,9 @@ const OperationsDashboard = memo(function OperationsDashboard({
       {/* Top row: Equipment Monitor and SOP Checklist */}
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Equipment Monitor - Takes primary space */}
-        <div className="flex-1 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-shadow hover:shadow-md">
+        <div className="flex-1 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-shadow hover:shadow-md print-avoid-break print:!bg-white print:!border-slate-200 print:!shadow-none">
           <div className="flex items-center gap-3 mb-6">
-            <div className="bg-slate-100 dark:bg-slate-700 p-2 rounded-lg text-lg">
+            <div className="bg-slate-100 dark:bg-slate-700 p-2 rounded-lg text-lg print:!bg-slate-100">
               📊
             </div>
             <div>
@@ -38,9 +38,9 @@ const OperationsDashboard = memo(function OperationsDashboard({
         </div>
 
         {/* SOP Checklist - Side column */}
-        <div className="w-full xl:w-[400px] xl:shrink-0 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-shadow hover:shadow-md flex flex-col max-h-[600px]">
+        <div className="w-full xl:w-[400px] xl:shrink-0 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 transition-shadow hover:shadow-md flex flex-col max-h-[600px] print-avoid-break print:!bg-white print:!border-slate-200 print:!shadow-none">
           <div className="flex items-center gap-3 mb-6">
-            <div className="bg-slate-100 dark:bg-slate-700 p-2 rounded-lg text-lg">
+            <div className="bg-slate-100 dark:bg-slate-700 p-2 rounded-lg text-lg print:!bg-slate-100">
               📑
             </div>
             <div>

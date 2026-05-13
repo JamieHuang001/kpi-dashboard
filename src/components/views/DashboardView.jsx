@@ -487,7 +487,7 @@ export default function DashboardView({
 
       {/* 業務板塊獨立分析 — 戰情室 2×2 大螢幕模式 */}
       {stats?.strat?.categories && (
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 24 }} className="print-avoid-break">
           <h3
             style={{
               margin: "0 0 16px 0",

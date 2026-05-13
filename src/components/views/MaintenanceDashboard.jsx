@@ -22,6 +22,7 @@ export default function MaintenanceDashboard({ assetData = [] }) {
     const [homeTrendData, setHomeTrendData] = useState([]);
     const [showLogic, setShowLogic] = useState(false);
     const [filters, setFilters] = useState({ status: '全部', contract: '全部', hospital: '全部', region: '全部' });
+    const [activeTab, setActiveTab] = useState('overview'); // overview, home, hospital, resources
 
     useEffect(() => {
         let mounted = true;
@@ -618,9 +619,133 @@ export default function MaintenanceDashboard({ assetData = [] }) {
     };
 
     return (
-        <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
+        <div className="maintenance-dashboard">
+            <style>{`
+                .maintenance-dashboard {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                }
+                .dashboard-tabs {
+                    display: flex;
+                    gap: 8px;
+                    border-bottom: 1px solid var(--color-border);
+                    margin-bottom: 16px;
+                    overflow-x: auto;
+                    padding-bottom: 8px;
+                    /* Hide scrollbar for tabs */
+                    scrollbar-width: none; 
+                }
+                .dashboard-tabs::-webkit-scrollbar {
+                    display: none;
+                }
+                .dashboard-tab {
+                    padding: 8px 16px;
+                    background: transparent;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    color: var(--color-text-secondary);
+                    white-space: nowrap;
+                    transition: all 0.2s;
+                }
+                .dashboard-tab:hover {
+                    background: var(--color-surface-alt);
+                    color: var(--color-text);
+                }
+                .dashboard-tab.active {
+                    background: var(--color-primary);
+                    color: #fff;
+                }
+                .tab-content {
+                    display: none;
+                }
+                .tab-content.active {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                    animation: fadeIn 0.3s ease;
+                }
+                .modern-card {
+                    background: var(--color-surface);
+                    border: 1px solid var(--color-border);
+                    border-radius: 12px;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+                    padding: 20px;
+                }
+                /* Print specific styles for PDF Export */
+                @media print {
+                    /* 強制白底黑字與淺色邊框，節省墨水並提高對比 */
+                    :root {
+                        --color-surface: #ffffff !important;
+                        --color-surface-alt: #f8fafc !important;
+                        --color-text: #0f172a !important;
+                        --color-text-secondary: #475569 !important;
+                        --color-border: #cbd5e1 !important;
+                        --color-bg: #ffffff !important;
+                        --color-primary: #0284c7 !important;
+                        --color-danger: #dc2626 !important;
+                        --color-warning: #d97706 !important;
+                        --color-success: #16a34a !important;
+                    }
+                    body { background: #ffffff !important; color: #0f172a !important; }
+                    
+                    /* 隱藏不必要的元素 */
+                    .dashboard-tabs, .topbar, .hamburger-btn, .print-hide, button, select, input { 
+                        display: none !important; 
+                    }
+                    
+                    /* 展開所有頁籤 */
+                    .tab-content { 
+                        display: flex !important; 
+                        flex-direction: column;
+                        gap: 20px;
+                        margin-bottom: 20px; 
+                        page-break-inside: auto;
+                        break-inside: auto;
+                    }
+                    
+                    /* 強制大標題換頁，避免切斷 */
+                    .tab-content h3 {
+                        page-break-after: avoid !important;
+                        break-after: avoid !important;
+                    }
+                    
+                    .maintenance-dashboard { gap: 20px; }
+                    
+                    /* 避免卡片與表格在換頁時被切斷 */
+                    .modern-card { 
+                        box-shadow: none !important; 
+                        border: 1px solid #cbd5e1 !important; 
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
+                        margin-bottom: 20px !important;
+                        background: #ffffff !important;
+                    }
+                    table, tr, .stat-box {
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
+                    }
+                    
+                    /* 確保背景色與圖表能夠印出 */
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                }
+            `}</style>
+
+            <div className="dashboard-tabs">
+                <button className={`dashboard-tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>📊 總覽與異常</button>
+                <button className={`dashboard-tab ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>🏠 居家保養</button>
+                <button className={`dashboard-tab ${activeTab === 'hospital' ? 'active' : ''}`} onClick={() => setActiveTab('hospital')}>🏥 醫院保養</button>
+                <button className={`dashboard-tab ${activeTab === 'resources' ? 'active' : ''}`} onClick={() => setActiveTab('resources')}>📦 資源與耗材</button>
+            </div>
+
             {/* 全局篩選器 */}
-            <div className="card" style={{ gridColumn: '1 / -1', padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+            <div className="modern-card print-hide" style={{ padding: '12px 20px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
                 <div style={{ fontWeight: 600, color: 'var(--color-text)', marginRight: '8px' }}>🔍 進階篩選:</div>
                 <select 
                     className="input" 
@@ -669,9 +794,61 @@ export default function MaintenanceDashboard({ assetData = [] }) {
                 )}
             </div>
 
-            {/* 居家保養區塊 */}
-            <div className="card" style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            {/* Overview Tab Content */}
+            <div className={`tab-content ${activeTab === 'overview' ? 'active' : ''}`}>
+                <div className="modern-card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-alt)', fontWeight: 700 }}>
+                        ⚠️ 待保養/異常關注名單
+                    </div>
+                    <div style={{ overflowX: 'auto', maxHeight: '400px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                            <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)' }}>
+                                <tr>
+                                    <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>類型</th>
+                                    <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>客戶/機構</th>
+                                    <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>設備</th>
+                                    <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>狀態</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {/* Home issues list: Include '待保養' */}
+                                {!loading && filteredHomeData.filter(d => !d.skip && d.status !== '已保養' && d.status !== '已結案').map((d, i) => (
+                                    <tr key={`home-${i}`} style={{ borderBottom: '1px solid var(--color-border)' }} className="hover-row">
+                                        <td style={{ padding: '8px 16px' }}><span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#d97706', padding: '2px 6px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600 }}>居家</span></td>
+                                        <td style={{ padding: '8px 16px', fontWeight: 600 }}>{d.name}</td>
+                                        <td style={{ padding: '8px 16px' }}>{d.machine || '-'} <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{d.engineer && `(${d.engineer})`}</span></td>
+                                        <td style={{ padding: '8px 16px', color: 'var(--color-warning)', fontWeight: 600 }}>{d.status}</td>
+                                    </tr>
+                                ))}
+                                {/* Hospital issues list: Include '預排保養月份' and '預排變更' */}
+                                {!loading && filteredHospitalData.filter(d => (d.status === '預排保養月份' || d.status === '預排變更')).map((d, i) => {
+                                    const isChange = d.status === '預排變更';
+                                    return (
+                                        <tr key={`hospital-${i}`} style={{ borderBottom: '1px solid var(--color-border)', opacity: isChange ? 0.6 : 1 }} className="hover-row">
+                                            <td style={{ padding: '8px 16px' }}>
+                                                <span style={{ background: 'rgba(14, 165, 233, 0.2)', color: '#0284c7', padding: '2px 6px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 600 }}>醫院</span>
+                                                <span style={{ marginLeft: 8, fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{d.month}月</span>
+                                            </td>
+                                            <td style={{ padding: '8px 16px', fontWeight: 600 }}>
+                                                {d.hospitalLink ? <a href={d.hospitalLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>{d.hospital}</a> : d.hospital}
+                                            </td>
+                                            <td style={{ padding: '8px 16px' }}>{d.machine || '-'} <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>({d.amount}台)</span></td>
+                                            <td style={{ padding: '8px 16px', color: isChange ? 'var(--color-text-secondary)' : 'var(--color-danger)', fontWeight: 600 }}>
+                                                {d.status} {isChange && '(NA)'}
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* Home Tab Content */}
+            <div className={`tab-content ${activeTab === 'home' ? 'active' : ''}`}>
+                <div className="modern-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-text)' }}>🏠 居家保養分析</h3>
                     {metadata && metadata.homeSheets.length > 0 && (
                         <select
@@ -848,7 +1025,8 @@ export default function MaintenanceDashboard({ assetData = [] }) {
                             </div>
                         )}
 
-                        {/* 🔄 設備供需對比 */}
+                        {/* 🔄 設備供需對比被移至 Resources 頁籤 */}
+                        {/* 這裡原本的 🔄 設備供需對比 */}
                         {equipmentComparison && equipmentComparison.comparison.length > 0 && (
                             <div style={{ marginBottom: 20, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -1058,8 +1236,7 @@ export default function MaintenanceDashboard({ assetData = [] }) {
                             )}
                         </div>
 
-                        {/* 📦 本月耗材使用統計 */}
-                        {homeStats.consumableTypeSummary.length > 0 && (
+                        {/* 📦 本月耗材使用統計被移至 Resources 頁籤 */}
                             <div style={{ marginTop: 24, padding: 16, background: 'var(--color-surface-alt)', borderRadius: 8 }}>
                                 <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>📦 本月耗材使用統計</h4>
 
@@ -1156,8 +1333,6 @@ export default function MaintenanceDashboard({ assetData = [] }) {
                                     </div>
                                 )}
                             </div>
-                        )}
-
                         {/* 工程師保養負載與達成率排行 */}
                         {engineerStatsArray.length > 0 && (
                             <div style={{ marginTop: 24 }}>
@@ -1186,11 +1361,13 @@ export default function MaintenanceDashboard({ assetData = [] }) {
                         )}
                     </>
                 )}
+                </div>
             </div>
 
-            {/* 醫院保養區塊 */}
-            <div className="card" style={{ padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            {/* Hospital Tab Content */}
+            <div className={`tab-content ${activeTab === 'hospital' ? 'active' : ''}`}>
+                <div className="modern-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-text)' }}>🏥 醫院保養分析</h3>
                     {metadata && metadata.hospitalSheets.length > 0 && (
                         <select
@@ -1322,56 +1499,210 @@ export default function MaintenanceDashboard({ assetData = [] }) {
                         )}
                     </>
                 )}
+                </div>
             </div>
 
-            {/* 詳細異常或未完成清單 */}
-            <div className="card" style={{ gridColumn: '1 / -1', padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-alt)', fontWeight: 700 }}>
-                    ⚠️ 待保養/異常關注名單
-                </div>
-                <div style={{ overflowX: 'auto', maxHeight: '300px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                        <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)' }}>
-                            <tr>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>類型</th>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>客戶/機構</th>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>設備</th>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>狀態</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {/* Home issues list: Include '待保養' */}
-                            {!loading && filteredHomeData.filter(d => !d.skip && d.status !== '已保養' && d.status !== '已結案').map((d, i) => (
-                                <tr key={`home-${i}`} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                    <td style={{ padding: '8px 16px' }}><span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#d97706', padding: '2px 6px', borderRadius: 4, fontSize: '0.7rem' }}>居家</span></td>
-                                    <td style={{ padding: '8px 16px', fontWeight: 600 }}>{d.name}</td>
-                                    <td style={{ padding: '8px 16px' }}>{d.machine || '-'} <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{d.engineer && `(${d.engineer})`}</span></td>
-                                    <td style={{ padding: '8px 16px', color: 'var(--color-warning)' }}>{d.status}</td>
-                                </tr>
-                            ))}
-                            {/* Hospital issues list: Include '預排保養月份' and '預排變更' */}
-                            {!loading && filteredHospitalData.filter(d => (d.status === '預排保養月份' || d.status === '預排變更')).map((d, i) => {
-                                const isChange = d.status === '預排變更';
-                                return (
-                                    <tr key={`hospital-${i}`} style={{ borderBottom: '1px solid var(--color-border)', opacity: isChange ? 0.6 : 1 }}>
-                                        <td style={{ padding: '8px 16px' }}>
-                                            <span style={{ background: 'rgba(14, 165, 233, 0.2)', color: '#0284c7', padding: '2px 6px', borderRadius: 4, fontSize: '0.7rem' }}>醫院</span>
-                                            <span style={{ marginLeft: 8, fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{d.month}月</span>
-                                        </td>
-                                        <td style={{ padding: '8px 16px', fontWeight: 600 }}>
-                                            {d.hospitalLink ? <a href={d.hospitalLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>{d.hospital}</a> : d.hospital}
-                                        </td>
-                                        <td style={{ padding: '8px 16px' }}>{d.machine || '-'} <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>({d.amount}台)</span></td>
-                                        <td style={{ padding: '8px 16px', color: isChange ? 'var(--color-text-secondary)' : 'var(--color-danger)' }}>
-                                            {d.status} {isChange && '(NA)'}
-                                        </td>
+            {/* Resources Tab Content */}
+            <div className={`tab-content ${activeTab === 'resources' ? 'active' : ''}`}>
+                {/* 🔄 設備供需對比 */}
+                {equipmentComparison && equipmentComparison.comparison.length > 0 && (
+                    <div className="modern-card" style={{ marginBottom: 20 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <h4 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-text)' }}>🔄 設備供需對比</h4>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>租賃使用中 vs 財產總表可用備機</span>
+                        </div>
+                        {equipmentComparison.maintenanceContractCount > 0 && (
+                            <div style={{
+                                fontSize: '0.75rem', color: '#6366f1', background: 'rgba(99,102,241,0.08)',
+                                padding: '8px 12px', borderRadius: 8, marginBottom: 16,
+                                borderLeft: '4px solid #6366f1'
+                            }}>
+                                ℹ️ 保養合約 <strong>{equipmentComparison.maintenanceContractCount}</strong> 案已排除（使用對方機器，不佔用公司設備）
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                            <div className="stat-box">
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>租賃使用中</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>{equipmentComparison.totalInUse} <span style={{ fontSize: '0.8rem' }}>台</span></div>
+                            </div>
+                            <div className="stat-box" style={{ borderLeftColor: '#10b981' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>可用備機</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>{equipmentComparison.totalIdle} <span style={{ fontSize: '0.8rem' }}>台</span></div>
+                            </div>
+                            <div className="stat-box" style={{ borderLeftColor: equipmentComparison.totalInUse > 0 ? (((equipmentComparison.totalIdle / equipmentComparison.totalInUse) * 100) < 5 ? '#ef4444' : (((equipmentComparison.totalIdle / equipmentComparison.totalInUse) * 100) < 15 ? '#f59e0b' : '#10b981')) : '#10b981' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>整體備機比率</div>
+                                {(() => {
+                                    const r = equipmentComparison.totalInUse > 0 ? ((equipmentComparison.totalIdle / equipmentComparison.totalInUse) * 100) : 0;
+                                    const color = r < 5 ? '#ef4444' : r < 15 ? '#f59e0b' : '#10b981';
+                                    return <div style={{ fontSize: '1.5rem', fontWeight: 700, color }}>{r.toFixed(1)}%</div>;
+                                })()}
+                            </div>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                                        <th style={{ textAlign: 'left', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>設備家族</th>
+                                        <th style={{ textAlign: 'right', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>租賃使用中</th>
+                                        <th style={{ textAlign: 'right', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>可用備機</th>
+                                        <th style={{ textAlign: 'right', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>備機比率</th>
+                                        <th style={{ textAlign: 'center', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>狀態</th>
+                                        <th style={{ textAlign: 'left', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>結論與建議</th>
                                     </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                                </thead>
+                                <tbody>
+                                    {equipmentComparison.comparison.filter(c => c.inUse > 0 || c.idle > 0).map((c, idx) => (
+                                        <tr key={idx} className="hover-row" style={{ borderBottom: '1px solid var(--color-border)', verticalAlign: 'top' }}>
+                                            <td style={{ padding: '12px 8px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>{c.family}</div>
+                                                {c.rentalDetails && (
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', marginTop: 4, lineHeight: 1.4 }}>
+                                                        使用中：{c.rentalDetails}
+                                                    </div>
+                                                )}
+                                                {c.idleDetails && (
+                                                    <div style={{ fontSize: '0.7rem', color: '#10b981', marginTop: 3, lineHeight: 1.4 }}>
+                                                        備機：{c.idleDetails}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 600, color: c.inUse > 0 ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>{c.inUse}</td>
+                                            <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 600, color: c.idle > 0 ? '#10b981' : 'var(--color-text-secondary)' }}>{c.idle}</td>
+                                            <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 600, color: c.ratio < 5 ? '#ef4444' : c.ratio < 15 ? '#f59e0b' : '#10b981' }}>
+                                                {c.inUse > 0 ? `${c.ratio}%` : (c.idle > 0 ? '純備機' : '-')}
+                                            </td>
+                                            <td style={{ padding: '12px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                                <span style={{ fontSize: '1rem' }}>{c.status}</span>
+                                                <span style={{ fontSize: '0.75rem', marginLeft: 6, fontWeight: 600, color: c.ratio < 5 ? '#ef4444' : c.ratio < 15 ? '#f59e0b' : '#10b981' }}>{c.statusText}</span>
+                                            </td>
+                                            <td style={{ padding: '12px 8px', fontSize: '0.8rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                                                {c.conclusion}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style={{ marginTop: 12, fontSize: '0.75rem', color: 'var(--color-text-secondary)', padding: '10px 12px', background: 'rgba(99,102,241,0.05)', borderRadius: 8, lineHeight: 1.6 }}>
+                            💡 <strong>備機比率</strong> = 可用備機 ÷ 租賃使用中 × 100%<br />
+                            <span style={{ color: '#10b981', fontWeight: 600 }}>🟢 ≥15% 充足</span> &nbsp; <span style={{ color: '#f59e0b', fontWeight: 600 }}>🟡 5~15% 偏低</span> &nbsp; <span style={{ color: '#ef4444', fontWeight: 600 }}>🔴 &lt;5% 建議向公司申請設備</span><br />
+                            <span style={{ opacity: 0.8 }}>備機用途：當租賃機器回收維修時，有足夠的替換機可以即時調度出貨</span><br />
+                            <span style={{ opacity: 0.8 }}>⚙️ 同系列設備可互相替代（如 Trilogy EVO/EVO O2 可當 T100 備機）</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* 📦 本月耗材使用統計 */}
+                {homeStats.consumableTypeSummary.length > 0 && (
+                    <div className="modern-card">
+                        <h4 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', color: 'var(--color-text)' }}>📦 本月耗材使用統計</h4>
+
+                        {/* 總覽數字卡 */}
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                            <div className="stat-box" style={{ borderLeftColor: 'var(--color-primary)' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>總使用數量</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>{homeStats.consumableTotalQty}</div>
+                            </div>
+                            <div className="stat-box" style={{ borderLeftColor: 'var(--color-danger)' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>總成本</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-danger)' }}>NT$ {homeStats.consumableTotalCost.toLocaleString()}</div>
+                            </div>
+                            <div className="stat-box" style={{ borderLeftColor: 'var(--color-success)' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>預估營收</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-success)' }}>NT$ {homeStats.consumableTotalPrice.toLocaleString()}</div>
+                            </div>
+                            <div className="stat-box" style={{ borderLeftColor: (homeStats.consumableTotalPrice - homeStats.consumableTotalCost) >= 0 ? '#10b981' : 'var(--color-danger)' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>毛利</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: (homeStats.consumableTotalPrice - homeStats.consumableTotalCost) >= 0 ? '#10b981' : 'var(--color-danger)' }}>
+                                    NT$ {(homeStats.consumableTotalPrice - homeStats.consumableTotalCost).toLocaleString()}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 各耗材明細表 */}
+                        <div style={{ overflowX: 'auto', marginBottom: 24 }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                                        <th style={{ textAlign: 'left', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>耗材名稱</th>
+                                        <th style={{ textAlign: 'right', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>數量</th>
+                                        <th style={{ textAlign: 'right', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>成本小計</th>
+                                        <th style={{ textAlign: 'right', padding: '10px 8px', color: 'var(--color-text-secondary)' }}>報價小計</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {homeStats.consumableTypeSummary.map((item, idx) => (
+                                        <tr key={idx} className="hover-row" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                            <td style={{ padding: '10px 8px', fontWeight: 600 }}>
+                                                {item.displayName}
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginLeft: 6 }}>({item.partNo})</span>
+                                            </td>
+                                            <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: 'var(--color-primary)' }}>{item.qty}</td>
+                                            <td style={{ padding: '10px 8px', textAlign: 'right', color: item.totalCost > 0 ? 'var(--color-danger)' : 'var(--color-text-secondary)', fontWeight: 500 }}>
+                                                {item.totalCost > 0 ? `$${item.totalCost.toLocaleString()}` : '-'}
+                                            </td>
+                                            <td style={{ padding: '10px 8px', textAlign: 'right', color: item.totalPrice > 0 ? 'var(--color-success)' : 'var(--color-text-secondary)', fontWeight: 500 }}>
+                                                {item.totalPrice > 0 ? `$${item.totalPrice.toLocaleString()}` : '-'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* 個案耗材消耗排行 */}
+                        {homeStats.consumablePatientRanking.length > 0 && (
+                            <div style={{ marginBottom: 24 }}>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: 12 }}>👤 個案耗材消耗排行 (Top 10)</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {homeStats.consumablePatientRanking.slice(0, 10).map((p, idx) => (
+                                        <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--color-surface-alt)', borderRadius: 8, border: '1px solid var(--color-border)', transition: 'all 0.2s' }} className="hover-card">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: idx < 3 ? '#f59e0b' : 'var(--color-text-secondary)', minWidth: 24 }}>#{idx + 1}</span>
+                                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{p.name}</span>
+                                                <span style={{ fontSize: '0.7rem', background: 'rgba(99,102,241,0.1)', color: '#6366f1', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>{p.contract}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: '0.85rem' }}>
+                                                <span style={{ color: 'var(--color-text-secondary)' }}>數量: <strong style={{ color: 'var(--color-primary)' }}>{p.totalQty}</strong></span>
+                                                {p.totalCost > 0 && <span style={{ color: 'var(--color-text-secondary)' }}>成本: <strong style={{ color: 'var(--color-danger)' }}>${p.totalCost.toLocaleString()}</strong></span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 院所別耗材統計 */}
+                        {homeStats.consumableHospitalRanking.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: 12 }}>🏥 院所別耗材統計</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                                    {homeStats.consumableHospitalRanking.map((h, idx) => (
+                                        <div key={idx} style={{ padding: '12px 16px', background: 'var(--color-surface-alt)', borderRadius: 8, border: '1px solid var(--color-border)', minWidth: 160 }} className="hover-card">
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={h.name}>{h.name}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                                <span>數量: <strong style={{ color: 'var(--color-primary)' }}>{h.totalQty}</strong></span>
+                                                {h.totalCost > 0 && <span>成本: <strong style={{ color: 'var(--color-danger)' }}>${h.totalCost.toLocaleString()}</strong></span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
+
+            <style>{`
+                .hover-row:hover {
+                    background-color: var(--color-surface-alt);
+                    transition: background-color 0.2s;
+                }
+                .hover-card:hover {
+                    border-color: var(--color-primary) !important;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                }
+            `}</style>
         </div >
     );
 }

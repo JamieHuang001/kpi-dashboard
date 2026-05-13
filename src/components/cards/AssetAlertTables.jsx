@@ -217,7 +217,7 @@ export function AssetAlertTables({ assetData }) {
   return (
     <div className="w-full flex flex-col gap-6 mt-6">
       {stats.totalDispatchable > 0 && (
-        <div className="p-5 rounded-xl border shadow-sm" style={{ background: 'var(--color-surface-alt)', borderColor: 'var(--color-border)' }}>
+        <div className="p-5 rounded-xl border shadow-sm print-avoid-break" style={{ background: 'var(--color-surface-alt)', borderColor: 'var(--color-border)' }}>
           <div className="flex items-center gap-3 mb-4">
             <div className="px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm" style={{ background: 'var(--color-accent)', color: 'white' }}>
               📦 業務端可調度設備
@@ -329,7 +329,7 @@ export function AssetAlertTables({ assetData }) {
       )}
 
       {stats.unregistered.total > 0 && (
-        <div className="p-5 rounded-xl border shadow-sm" style={{ background: 'var(--color-surface-alt)', borderColor: 'var(--color-border)' }}>
+        <div className="p-5 rounded-xl border shadow-sm print-avoid-break" style={{ background: 'var(--color-surface-alt)', borderColor: 'var(--color-border)' }}>
           <div
             className="flex items-center gap-3 cursor-pointer select-none"
             onClick={() => setUnregCollapsed((p) => !p)}

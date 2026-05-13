@@ -1785,6 +1785,19 @@ body {
 
 /* ===== Print ===== */
 @media print {
+  /* 強制白底黑字與淺色邊框，節省墨水並提高對比 */
+  :root, .dark {
+    --color-surface: #ffffff !important;
+    --color-surface-alt: #f8fafc !important;
+    --color-text: #0f172a !important;
+    --color-text-secondary: #475569 !important;
+    --color-border: #cbd5e1 !important;
+    --color-bg: #ffffff !important;
+    --color-primary: #0284c7 !important;
+    --color-danger: #dc2626 !important;
+    --color-warning: #d97706 !important;
+    --color-success: #16a34a !important;
+  }
 
   /* Critical overrides to let browser calculate full page height */
   html,
@@ -1798,6 +1811,7 @@ body {
     padding: 0 !important;
     margin: 0 !important;
     background: white !important;
+    color: #0f172a !important;
   }
 
   .sidebar,
@@ -1805,7 +1819,8 @@ body {
   .btn,
   .pagination,
   .hamburger-btn,
-  .sidebar-overlay {
+  .sidebar-overlay,
+  .print-hide {
     display: none !important;
   }
 
@@ -1825,13 +1840,23 @@ body {
   /* Card boundaries */
   .card,
   .kpi-card,
-  .analysis-box {
+  .analysis-box,
+  .section-card,
+  .print-avoid-break,
+  .hover-card,
+  .customer-card {
     box-shadow: none !important;
-    break-inside: avoid;
+    break-inside: avoid !important;
     break-after: auto;
-    page-break-inside: avoid;
+    page-break-inside: avoid !important;
     margin-bottom: 24px !important;
-    border: 1px solid #e5e5e5 !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+  }
+
+  table, tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   /* Force background colors on print */
@@ -1842,8 +1867,9 @@ body {
 
   /* Give headers room to breathe after page break */
   h2,
-  h3 {
-    break-after: avoid;
-    page-break-after: avoid;
+  h3,
+  h4 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
   }
 }

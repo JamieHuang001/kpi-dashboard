@@ -1,6 +1,27 @@
-# 🔥 v6.2.3 更新日誌
+# 🔥 v6.2.5 更新日誌
 
-發佈日期：2026-05-12
+發佈日期：2026-05-13
+
+本次 v6.2.5 版本主要針對系統的「PDF 報表匯出」進行了深度視覺與排版優化。徹底解決了深色模式下匯出的文件不易閱讀的問題，並強化了多個大型數據區塊在跨頁時的完整性保護機制，確保產出的報表具備高度的專業性。
+
+## ✨ 新增功能與優化 (Features & Improvements)
+- **PDF 列印強制淺色主題**：全面覆寫 Tailwind CSS 深色模式樣式與 CSS 變數，無論使用者的瀏覽器或系統處於何種主題，PDF 匯出時皆強制使用高對比度的白底黑字，節省列印墨水並大幅提升報表易讀性。
+- **跨頁截斷防護機制 (Page Break Protection)**：針對「業務端可調度設備」、「四大業務板塊分析」與「營運風險監控」等大型卡片與表格區塊，實作 `print-avoid-break` 標籤防護。確保內容若遇到跨頁時能自動平移至下一頁頂端，不再被從中截斷。
+- **特定區塊深色背景修復**：精準修復了「跨區設備調度總覽」、「重點營運除錯工單」與「風險矩陣」區塊因綁定特定 Tailwind 色彩 (`bg-slate-800` 等) 而導致在 PDF 中呈現深黑色的問題，加入了專屬的列印標籤 (`print:!bg-white` 等)。
+- **無用控制項自動隱藏**：優化列印樣式，於匯出報表時自動隱藏側邊導覽列、頁面切換標籤與設定按鈕，提供更乾淨純粹的數據報表畫面。
+
+## 📁 異動檔案 (Changed Files)
+- `src/styles/index.css` — 實作 `@media print` 全局淺色主題覆寫與跨頁保護樣式 (`.print-avoid-break`)
+- `src/components/views/MaintenanceDashboard.jsx` — 引入列印樣式並隱藏介面控制按鈕
+- `src/components/views/DashboardView.jsx` — 為四大板塊新增跨頁保護
+- `src/components/cards/OperationsDashboard.jsx` — 修復特定卡片的深色背景列印問題
+- `src/components/cards/RiskManagement.jsx` — 修復風險矩陣的深色背景與跨頁問題
+- `src/components/cards/AssetAlertTables.jsx` — 為長清單表格新增跨頁保護
+- `src/config/version.js` — 版本號更新至 6.2.5
+
+---
+
+# 🔥 v6.2.4 更新日誌
 
 本次 v6.2.3 版本主要新增了「業務端可調度設備」的自訂分類功能，讓使用者無需修改原始碼，即可透過圖形介面彈性調整各項設備型號的分類歸屬，並支援設定檔匯出與部署同步。
 
